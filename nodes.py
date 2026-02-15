@@ -21,9 +21,9 @@ class Picker:
     def INPUT_TYPES(cls):
         inputs = {
             "required": {
-                "select": ("INT", {"default": 1, "min": 1, "max": 20}),
+                "select": ("INT", {"default": 0, "min": 0, "max": 19}),
                 "mode": (["manual", "random"],),
-                "line": ("INT", {"default": 1, "min": 1}),
+                "line": ("INT", {"default": 0, "min": 0}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
             },
             "optional": {},
@@ -50,7 +50,7 @@ class Picker:
         if not connected:
             return ("",)
 
-        slot = max(0, min(select - 1, len(connected) - 1))
+        slot = max(0, min(select, len(connected) - 1))
         text = connected[slot]
         lines = [ln for ln in text.split("\n") if ln.strip()]
 
@@ -60,7 +60,7 @@ class Picker:
         if mode == "random":
             pick = seed % len(lines)
         else:
-            pick = max(0, min(line - 1, len(lines) - 1))
+            pick = max(0, min(line, len(lines) - 1))
 
         return (lines[pick],)
 
