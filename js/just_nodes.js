@@ -23,7 +23,7 @@ app.registerExtension({
         }
 
         // Add Refresh button to count lines from connected nodes
-        this.addWidget("button", "refresh_lines", null, () => {
+        const refreshWidget = this.addWidget("button", "refresh_lines", null, () => {
           const graph = app.graph;
           for (const inp of this.inputs) {
             if (!inp.name.startsWith("text_")) continue;
@@ -59,7 +59,32 @@ app.registerExtension({
           this.setDirtyCanvas(true);
         });
 
+        // Prevent button from being serialized in API format
+        refreshWidget.serialize = false;
+        refreshWidget.serializeValue = () => undefined;
+
         this.setSize(this.computeSize());
+      };
+
+      // Pre-create text_* inputs when loading from saved workflow data
+      const onConfigure = nodeType.prototype.onConfigure;
+      nodeType.prototype.onConfigure = function (data) {
+        if (data?.inputs) {
+          let maxTextIndex = 0;
+          for (const inp of data.inputs) {
+            const match = inp.name?.match(/^text_(\d+)$/);
+            if (match) {
+              maxTextIndex = Math.max(maxTextIndex, parseInt(match[1]));
+            }
+          }
+          for (let i = 2; i <= maxTextIndex; i++) {
+            const name = `text_${i}`;
+            if (!this.inputs.some((inp) => inp.name === name)) {
+              this.addInput(name, "STRING");
+            }
+          }
+        }
+        onConfigure?.apply(this, arguments);
       };
 
       const onConnectionsChange = nodeType.prototype.onConnectionsChange;
