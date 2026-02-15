@@ -2,6 +2,7 @@ import { app } from "../../scripts/app.js";
 
 function toggleWidget(node, widget, show = false) {
   if (!widget) return;
+  if (node.inputs?.some((i) => i.widget?.name === widget.name)) return;
 
   if (!widget._jn_origType) {
     widget._jn_origType = widget.type;
@@ -11,50 +12,92 @@ function toggleWidget(node, widget, show = false) {
   widget.type = show ? widget._jn_origType : "jnHidden";
   widget.computeSize = show ? widget._jn_origComputeSize : () => [0, -4];
 
-  // Handle linked widgets (e.g. seed → control_after_generate)
   if (widget.linkedWidgets) {
     for (const w of widget.linkedWidgets) {
       toggleWidget(node, w, show);
     }
   }
+
+  const height = show
+    ? Math.max(node.computeSize()[1], node.size[1])
+    : node.computeSize()[1];
+  node.setSize([node.size[0], height]);
 }
 
 function findWidget(node, name) {
-  return node.widgets.find((w) => w.name === name);
+  return node.widgets?.find((w) => w.name === name);
 }
 
-function updateNodeHeight(node) {
-  node.setSize([node.size[0], node.computeSize()[1]]);
-}
-
-function updateModeVisibility(node, manualWidgets, randomWidgets) {
+// Apply mode visibility and install reactive setter via Object.defineProperty
+function setupModeToggle(node, manualWidgets, randomWidgets) {
   const modeWidget = findWidget(node, "mode");
   if (!modeWidget) return;
-  const isRandom = modeWidget.value === "random";
 
-  for (const name of manualWidgets)
-    toggleWidget(node, findWidget(node, name), !isRandom);
-  for (const name of randomWidgets)
-    toggleWidget(node, findWidget(node, name), isRandom);
+  function applyVisibility() {
+    const isRandom = modeWidget.value === "random";
+    for (const name of manualWidgets)
+      toggleWidget(node, findWidget(node, name), !isRandom);
+    for (const name of randomWidgets)
+      toggleWidget(node, findWidget(node, name), isRandom);
+  }
 
-  updateNodeHeight(node);
+  // Install reactive setter so every change triggers visibility update
+  if (!modeWidget._jn_setter) {
+    modeWidget._jn_setter = true;
+    let currentValue = modeWidget.value;
+    Object.defineProperty(modeWidget, "value", {
+      get() {
+        return currentValue;
+      },
+      set(newValue) {
+        currentValue = newValue;
+        applyVisibility();
+      },
+      configurable: true,
+    });
+  }
+
+  applyVisibility();
 }
 
-function hookModeWidget(node, manualWidgets, randomWidgets) {
-  const modeWidget = findWidget(node, "mode");
-  if (!modeWidget) return;
-  const origCallback = modeWidget.callback;
-  modeWidget.callback = function (value) {
-    origCallback?.call(modeWidget, value);
-    updateModeVisibility(node, manualWidgets, randomWidgets);
-  };
+// Apply pairs visibility and install reactive setter
+function setupPairsToggle(node) {
+  const pairsWidget = findWidget(node, "pairs");
+  if (!pairsWidget) return;
+
+  function applyVisibility() {
+    const visible = pairsWidget.value;
+    for (const w of node.widgets) {
+      const match = w.name.match(/^(search|replace)_(\d+)$/);
+      if (match) {
+        toggleWidget(node, w, parseInt(match[2]) <= visible);
+      }
+    }
+  }
+
+  if (!pairsWidget._jn_setter) {
+    pairsWidget._jn_setter = true;
+    let currentValue = pairsWidget.value;
+    Object.defineProperty(pairsWidget, "value", {
+      get() {
+        return currentValue;
+      },
+      set(newValue) {
+        currentValue = newValue;
+        applyVisibility();
+      },
+      configurable: true,
+    });
+  }
+
+  applyVisibility();
 }
 
 app.registerExtension({
   name: "just_nodes",
 
   beforeRegisterNodeDef(nodeType, nodeData) {
-    // --- Picker: dynamic input slots + refresh button + mode visibility ---
+    // --- Picker: dynamic input slots ---
     if (nodeData.name === "Picker_JN") {
       const onNodeCreated = nodeType.prototype.onNodeCreated;
       nodeType.prototype.onNodeCreated = function () {
@@ -108,14 +151,6 @@ app.registerExtension({
           }
           this.setDirtyCanvas(true);
         });
-
-        // Mode visibility: manual=line, random=seed
-        // Defer to let ComfyUI finish adding all widgets (e.g. control_after_generate)
-        const self = this;
-        hookModeWidget(this, ["line"], ["seed"]);
-        setTimeout(() => {
-          updateModeVisibility(self, ["line"], ["seed"]);
-        }, 0);
       };
 
       const onConnectionsChange = nodeType.prototype.onConnectionsChange;
@@ -154,88 +189,27 @@ app.registerExtension({
           }
         }
 
-        updateNodeHeight(this);
-      };
-
-      const onConfigure = nodeType.prototype.onConfigure;
-      nodeType.prototype.onConfigure = function (data) {
-        onConfigure?.apply(this, arguments);
-        setTimeout(() => {
-          updateModeVisibility(this, ["line"], ["seed"]);
-        }, 0);
+        this.setSize([this.size[0], this.computeSize()[1]]);
       };
     }
+  },
 
-    // --- Search & Replace: pairs slider controls visibility ---
-    if (nodeData.name === "SearchReplace_JN") {
-      function updatePairsVisibility(node) {
-        const pairsWidget = findWidget(node, "pairs");
-        if (!pairsWidget) return;
-        const visible = pairsWidget.value;
+  // nodeCreated fires AFTER ComfyUI fully creates the node (unlike onNodeCreated)
+  nodeCreated(node) {
+    const setupWithDelay = (fn) => setTimeout(() => fn(node), 10);
 
-        for (const w of node.widgets) {
-          const match = w.name.match(/^(search|replace)_(\d+)$/);
-          if (match) {
-            const num = parseInt(match[2]);
-            toggleWidget(node, w, num <= visible);
-          }
-        }
-        updateNodeHeight(node);
-      }
-
-      const onNodeCreated = nodeType.prototype.onNodeCreated;
-      nodeType.prototype.onNodeCreated = function () {
-        onNodeCreated?.apply(this, arguments);
-
-        const self = this;
-        const pairsWidget = findWidget(this, "pairs");
-        if (pairsWidget) {
-          const origCallback = pairsWidget.callback;
-          pairsWidget.callback = (value) => {
-            origCallback?.call(pairsWidget, value);
-            updatePairsVisibility(self);
-          };
-        }
-
-        // Defer initial hide to let ComfyUI finish widget setup
-        setTimeout(() => {
-          updatePairsVisibility(self);
-        }, 0);
-      };
-
-      const onConfigure = nodeType.prototype.onConfigure;
-      nodeType.prototype.onConfigure = function (data) {
-        onConfigure?.apply(this, arguments);
-        const self = this;
-        setTimeout(() => {
-          updatePairsVisibility(self);
-        }, 0);
-      };
+    if (node.comfyClass === "Picker_JN") {
+      setupWithDelay((n) => setupModeToggle(n, ["line"], ["seed"]));
     }
 
-    // --- Labeled Index: mode visibility ---
-    if (nodeData.name === "LabeledIndex_JN") {
-      const onNodeCreated = nodeType.prototype.onNodeCreated;
-      nodeType.prototype.onNodeCreated = function () {
-        onNodeCreated?.apply(this, arguments);
+    if (node.comfyClass === "SearchReplace_JN") {
+      setupWithDelay((n) => setupPairsToggle(n));
+    }
 
-        const self = this;
-        hookModeWidget(this, ["value"], ["seed", "min", "max"]);
-
-        // Defer to let ComfyUI finish adding control_after_generate for seed
-        setTimeout(() => {
-          updateModeVisibility(self, ["value"], ["seed", "min", "max"]);
-        }, 0);
-      };
-
-      const onConfigure = nodeType.prototype.onConfigure;
-      nodeType.prototype.onConfigure = function (data) {
-        onConfigure?.apply(this, arguments);
-        const self = this;
-        setTimeout(() => {
-          updateModeVisibility(self, ["value"], ["seed", "min", "max"]);
-        }, 0);
-      };
+    if (node.comfyClass === "LabeledIndex_JN") {
+      setupWithDelay((n) =>
+        setupModeToggle(n, ["value"], ["seed", "min", "max"]),
+      );
     }
   },
 });
