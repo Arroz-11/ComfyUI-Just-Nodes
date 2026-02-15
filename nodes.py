@@ -33,7 +33,8 @@ class ImageFromFolder:
         if not files:
             raise FileNotFoundError(f"No images in: '{folder}'")
 
-        index = max(0, min(index, len(files) - 1))
+        if index >= len(files):
+            raise IndexError(f"No more images: index {index} but only {len(files)} images in folder")
         path = os.path.join(folder, files[index])
 
         img = Image.open(path)
