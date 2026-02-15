@@ -21,15 +21,15 @@ class Picker:
     def INPUT_TYPES(cls):
         inputs = {
             "required": {
-                "list": ("INT", {"default": 0, "min": 0, "max": 19}),
+                "select": ("INT", {"default": 1, "min": 1, "max": 20}),
                 "mode": (["manual", "random"],),
-                "index": ("INT", {"default": 0, "min": 0}),
+                "line": ("INT", {"default": 1, "min": 1}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
             },
             "optional": {},
         }
-        for i in range(20):
-            inputs["optional"][f"input_{i}"] = ("STRING", {"forceInput": True})
+        for i in range(1, 21):
+            inputs["optional"][f"text_{i}"] = ("STRING", {"forceInput": True})
         return inputs
 
     @classmethod
@@ -40,19 +40,19 @@ class Picker:
     FUNCTION = "execute"
     CATEGORY = "\U0001f48e Just Nodes"
 
-    def execute(self, list, mode, index, seed, **kwargs):
+    def execute(self, select, mode, line, seed, **kwargs):
         connected = []
-        for i in range(20):
-            key = f"input_{i}"
+        for i in range(1, 21):
+            key = f"text_{i}"
             if key in kwargs and kwargs[key] is not None:
                 connected.append(kwargs[key])
 
         if not connected:
             return ("",)
 
-        slot = max(0, min(list, len(connected) - 1))
+        slot = max(0, min(select - 1, len(connected) - 1))
         text = connected[slot]
-        lines = [line for line in text.split("\n") if line.strip()]
+        lines = [ln for ln in text.split("\n") if ln.strip()]
 
         if not lines:
             return ("",)
@@ -60,7 +60,7 @@ class Picker:
         if mode == "random":
             pick = seed % len(lines)
         else:
-            pick = max(0, min(index, len(lines) - 1))
+            pick = max(0, min(line - 1, len(lines) - 1))
 
         return (lines[pick],)
 
@@ -71,6 +71,7 @@ class SearchReplace:
         inputs = {
             "required": {
                 "text": ("STRING", {"forceInput": True}),
+                "pairs": ("INT", {"default": 1, "min": 1, "max": 20}),
             },
             "optional": {},
         }
@@ -87,13 +88,11 @@ class SearchReplace:
     FUNCTION = "execute"
     CATEGORY = "\U0001f48e Just Nodes"
 
-    def execute(self, text, **kwargs):
+    def execute(self, text, pairs, **kwargs):
         result = text
-        for i in range(1, 21):
-            search_key = f"search_{i}"
-            replace_key = f"replace_{i}"
-            search = kwargs.get(search_key, "")
-            replace = kwargs.get(replace_key, "")
+        for i in range(1, pairs + 1):
+            search = kwargs.get(f"search_{i}", "")
+            replace = kwargs.get(f"replace_{i}", "")
             if search:
                 result = result.replace(search, replace)
         return (result,)
@@ -105,7 +104,11 @@ class LabeledIndex:
         return {
             "required": {
                 "labels": ("STRING", {"multiline": True, "default": "Option A\nOption B\nOption C"}),
+                "mode": (["manual", "random"],),
                 "value": ("INT", {"default": 0, "min": 0}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
+                "min": ("INT", {"default": 0, "min": 0}),
+                "max": ("INT", {"default": 19, "min": 0}),
             }
         }
 
@@ -113,5 +116,9 @@ class LabeledIndex:
     FUNCTION = "execute"
     CATEGORY = "\U0001f48e Just Nodes"
 
-    def execute(self, labels, value):
+    def execute(self, labels, mode, value, seed, min, max):
+        if mode == "random":
+            if max < min:
+                max = min
+            return (seed % (max - min + 1) + min,)
         return (value,)
