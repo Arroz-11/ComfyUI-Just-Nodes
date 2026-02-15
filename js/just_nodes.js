@@ -1,57 +1,51 @@
 import { app } from "../../scripts/app.js";
 
-// Toggle widget visibility and handle seed's companion control widget
-function setWidgetVisible(node, name, visible) {
-  const w = node.widgets.find((w) => w.name === name);
-  if (!w) return;
-  w.type = visible ? w._origType || "number" : "hidden";
+const origProps = {};
 
-  // ComfyUI adds a control_after_generate widget right after seed
-  if (name === "seed") {
-    const seedIdx = node.widgets.indexOf(w);
-    if (seedIdx !== -1 && seedIdx + 1 < node.widgets.length) {
-      const control = node.widgets[seedIdx + 1];
-      if (control.name === "control_after_generate") {
-        control.type = visible ? control._origType || "combo" : "hidden";
-      }
+function toggleWidget(node, widget, show = false) {
+  if (!widget) return;
+
+  if (!origProps[widget.name]) {
+    origProps[widget.name] = {
+      origType: widget.type,
+      origComputeSize: widget.computeSize,
+    };
+  }
+
+  widget.type = show ? origProps[widget.name].origType : "jnHidden";
+  widget.computeSize = show
+    ? origProps[widget.name].origComputeSize
+    : () => [0, -4];
+
+  // Handle linked widgets (e.g. seed → control_after_generate)
+  if (widget.linkedWidgets) {
+    for (const w of widget.linkedWidgets) {
+      toggleWidget(node, w, show);
     }
   }
 }
 
-// Store original widget types so we can restore them
-function storeOrigTypes(node, names) {
-  for (const name of names) {
-    const w = node.widgets.find((w) => w.name === name);
-    if (w && !w._origType) w._origType = w.type;
-  }
-  // Also store for seed's control widget
-  const seedW = node.widgets.find((w) => w.name === "seed");
-  if (seedW) {
-    const idx = node.widgets.indexOf(seedW);
-    if (idx !== -1 && idx + 1 < node.widgets.length) {
-      const control = node.widgets[idx + 1];
-      if (control.name === "control_after_generate" && !control._origType) {
-        control._origType = control.type;
-      }
-    }
-  }
+function findWidget(node, name) {
+  return node.widgets.find((w) => w.name === name);
+}
+
+function updateNodeHeight(node) {
+  node.setSize([node.size[0], node.computeSize()[1]]);
 }
 
 function updateModeVisibility(node, manualWidgets, randomWidgets) {
-  const modeWidget = node.widgets.find((w) => w.name === "mode");
+  const modeWidget = findWidget(node, "mode");
   if (!modeWidget) return;
   const isRandom = modeWidget.value === "random";
 
-  for (const name of manualWidgets) setWidgetVisible(node, name, !isRandom);
-  for (const name of randomWidgets) setWidgetVisible(node, name, isRandom);
+  for (const name of manualWidgets) toggleWidget(node, findWidget(node, name), !isRandom);
+  for (const name of randomWidgets) toggleWidget(node, findWidget(node, name), isRandom);
 
-  node.setSize(node.computeSize());
+  updateNodeHeight(node);
 }
 
 function hookModeWidget(node, manualWidgets, randomWidgets) {
-  storeOrigTypes(node, [...manualWidgets, ...randomWidgets]);
-
-  const modeWidget = node.widgets.find((w) => w.name === "mode");
+  const modeWidget = findWidget(node, "mode");
   if (!modeWidget) return;
   const origCallback = modeWidget.callback;
   modeWidget.callback = function (value) {
@@ -160,13 +154,12 @@ app.registerExtension({
           }
         }
 
-        this.setSize(this.computeSize());
+        updateNodeHeight(this);
       };
 
       const onConfigure = nodeType.prototype.onConfigure;
       nodeType.prototype.onConfigure = function (data) {
         onConfigure?.apply(this, arguments);
-        storeOrigTypes(this, ["line", "seed"]);
         updateModeVisibility(this, ["line"], ["seed"]);
       };
     }
@@ -174,7 +167,7 @@ app.registerExtension({
     // --- Search & Replace: pairs slider controls visibility ---
     if (nodeData.name === "SearchReplace_JN") {
       function updatePairsVisibility(node) {
-        const pairsWidget = node.widgets.find((w) => w.name === "pairs");
+        const pairsWidget = findWidget(node, "pairs");
         if (!pairsWidget) return;
         const visible = pairsWidget.value;
 
@@ -182,10 +175,10 @@ app.registerExtension({
           const match = w.name.match(/^(search|replace)_(\d+)$/);
           if (match) {
             const num = parseInt(match[2]);
-            w.type = num <= visible ? "STRING" : "hidden";
+            toggleWidget(node, w, num <= visible);
           }
         }
-        node.setSize(node.computeSize());
+        updateNodeHeight(node);
       }
 
       const onNodeCreated = nodeType.prototype.onNodeCreated;
@@ -193,7 +186,7 @@ app.registerExtension({
         onNodeCreated?.apply(this, arguments);
         updatePairsVisibility(this);
 
-        const pairsWidget = this.widgets.find((w) => w.name === "pairs");
+        const pairsWidget = findWidget(this, "pairs");
         if (pairsWidget) {
           const origCallback = pairsWidget.callback;
           pairsWidget.callback = (value) => {
@@ -222,7 +215,6 @@ app.registerExtension({
       const onConfigure = nodeType.prototype.onConfigure;
       nodeType.prototype.onConfigure = function (data) {
         onConfigure?.apply(this, arguments);
-        storeOrigTypes(this, ["value", "seed", "min", "max"]);
         updateModeVisibility(this, ["value"], ["seed", "min", "max"]);
       };
     }
