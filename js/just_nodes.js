@@ -1,21 +1,15 @@
 import { app } from "../../scripts/app.js";
 
-const origProps = {};
-
 function toggleWidget(node, widget, show = false) {
   if (!widget) return;
 
-  if (!origProps[widget.name]) {
-    origProps[widget.name] = {
-      origType: widget.type,
-      origComputeSize: widget.computeSize,
-    };
+  if (!widget._jn_origType) {
+    widget._jn_origType = widget.type;
+    widget._jn_origComputeSize = widget.computeSize;
   }
 
-  widget.type = show ? origProps[widget.name].origType : "jnHidden";
-  widget.computeSize = show
-    ? origProps[widget.name].origComputeSize
-    : () => [0, -4];
+  widget.type = show ? widget._jn_origType : "jnHidden";
+  widget.computeSize = show ? widget._jn_origComputeSize : () => [0, -4];
 
   // Handle linked widgets (e.g. seed → control_after_generate)
   if (widget.linkedWidgets) {
