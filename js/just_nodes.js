@@ -1,10 +1,70 @@
 import { app } from "../../scripts/app.js";
 
+// Toggle widget visibility and handle seed's companion control widget
+function setWidgetVisible(node, name, visible) {
+  const w = node.widgets.find((w) => w.name === name);
+  if (!w) return;
+  w.type = visible ? w._origType || "number" : "hidden";
+
+  // ComfyUI adds a control_after_generate widget right after seed
+  if (name === "seed") {
+    const seedIdx = node.widgets.indexOf(w);
+    if (seedIdx !== -1 && seedIdx + 1 < node.widgets.length) {
+      const control = node.widgets[seedIdx + 1];
+      if (control.name === "control_after_generate") {
+        control.type = visible ? control._origType || "combo" : "hidden";
+      }
+    }
+  }
+}
+
+// Store original widget types so we can restore them
+function storeOrigTypes(node, names) {
+  for (const name of names) {
+    const w = node.widgets.find((w) => w.name === name);
+    if (w && !w._origType) w._origType = w.type;
+  }
+  // Also store for seed's control widget
+  const seedW = node.widgets.find((w) => w.name === "seed");
+  if (seedW) {
+    const idx = node.widgets.indexOf(seedW);
+    if (idx !== -1 && idx + 1 < node.widgets.length) {
+      const control = node.widgets[idx + 1];
+      if (control.name === "control_after_generate" && !control._origType) {
+        control._origType = control.type;
+      }
+    }
+  }
+}
+
+function updateModeVisibility(node, manualWidgets, randomWidgets) {
+  const modeWidget = node.widgets.find((w) => w.name === "mode");
+  if (!modeWidget) return;
+  const isRandom = modeWidget.value === "random";
+
+  for (const name of manualWidgets) setWidgetVisible(node, name, !isRandom);
+  for (const name of randomWidgets) setWidgetVisible(node, name, isRandom);
+
+  node.setSize(node.computeSize());
+}
+
+function hookModeWidget(node, manualWidgets, randomWidgets) {
+  storeOrigTypes(node, [...manualWidgets, ...randomWidgets]);
+
+  const modeWidget = node.widgets.find((w) => w.name === "mode");
+  if (!modeWidget) return;
+  const origCallback = modeWidget.callback;
+  modeWidget.callback = function (value) {
+    origCallback?.call(modeWidget, value);
+    updateModeVisibility(node, manualWidgets, randomWidgets);
+  };
+}
+
 app.registerExtension({
   name: "just_nodes",
 
   beforeRegisterNodeDef(nodeType, nodeData) {
-    // --- Picker: dynamic input slots + refresh button ---
+    // --- Picker: dynamic input slots + refresh button + mode visibility ---
     if (nodeData.name === "Picker_JN") {
       const onNodeCreated = nodeType.prototype.onNodeCreated;
       nodeType.prototype.onNodeCreated = function () {
@@ -36,7 +96,6 @@ app.registerExtension({
                 const sourceNode = graph.getNodeById(linkInfo.origin_id);
                 if (sourceNode) {
                   let text = "";
-                  // Try to read text from source node widgets
                   for (const w of sourceNode.widgets || []) {
                     if (
                       w.type === "customtext" ||
@@ -60,7 +119,9 @@ app.registerExtension({
           this.setDirtyCanvas(true);
         });
 
-        this.setSize(this.computeSize());
+        // Mode visibility: manual=line, random=seed
+        hookModeWidget(this, ["line"], ["seed"]);
+        updateModeVisibility(this, ["line"], ["seed"]);
       };
 
       const onConnectionsChange = nodeType.prototype.onConnectionsChange;
@@ -71,14 +132,13 @@ app.registerExtension({
       ) {
         onConnectionsChange?.apply(this, arguments);
 
-        if (side !== 1) return; // 1 = input side
+        if (side !== 1) return;
 
         const inputSlots = this.inputs.filter((i) =>
           i.name.startsWith("text_"),
         );
 
         if (connected) {
-          // If the last text_ slot is now connected, add a new one
           const lastInput = inputSlots[inputSlots.length - 1];
           if (lastInput && lastInput.link != null) {
             const nextIndex = inputSlots.length + 1;
@@ -87,13 +147,11 @@ app.registerExtension({
             }
           }
         } else {
-          // Remove trailing disconnected slots (keep at least 1)
           const allInputSlots = this.inputs.filter((i) =>
             i.name.startsWith("text_"),
           );
           for (let i = allInputSlots.length - 1; i >= 1; i--) {
             if (allInputSlots[i].link != null) break;
-            // Reset label before removing
             allInputSlots[i].label = null;
             const idx = this.inputs.findIndex(
               (inp) => inp.name === allInputSlots[i].name,
@@ -103,6 +161,13 @@ app.registerExtension({
         }
 
         this.setSize(this.computeSize());
+      };
+
+      const onConfigure = nodeType.prototype.onConfigure;
+      nodeType.prototype.onConfigure = function (data) {
+        onConfigure?.apply(this, arguments);
+        storeOrigTypes(this, ["line", "seed"]);
+        updateModeVisibility(this, ["line"], ["seed"]);
       };
     }
 
@@ -126,11 +191,8 @@ app.registerExtension({
       const onNodeCreated = nodeType.prototype.onNodeCreated;
       nodeType.prototype.onNodeCreated = function () {
         onNodeCreated?.apply(this, arguments);
-
-        // Hide all pairs except those within the pairs slider value
         updatePairsVisibility(this);
 
-        // Listen to pairs slider changes
         const pairsWidget = this.widgets.find((w) => w.name === "pairs");
         if (pairsWidget) {
           const origCallback = pairsWidget.callback;
@@ -145,6 +207,23 @@ app.registerExtension({
       nodeType.prototype.onConfigure = function (data) {
         onConfigure?.apply(this, arguments);
         updatePairsVisibility(this);
+      };
+    }
+
+    // --- Labeled Index: mode visibility ---
+    if (nodeData.name === "LabeledIndex_JN") {
+      const onNodeCreated = nodeType.prototype.onNodeCreated;
+      nodeType.prototype.onNodeCreated = function () {
+        onNodeCreated?.apply(this, arguments);
+        hookModeWidget(this, ["value"], ["seed", "min", "max"]);
+        updateModeVisibility(this, ["value"], ["seed", "min", "max"]);
+      };
+
+      const onConfigure = nodeType.prototype.onConfigure;
+      nodeType.prototype.onConfigure = function (data) {
+        onConfigure?.apply(this, arguments);
+        storeOrigTypes(this, ["value", "seed", "min", "max"]);
+        updateModeVisibility(this, ["value"], ["seed", "min", "max"]);
       };
     }
   },
