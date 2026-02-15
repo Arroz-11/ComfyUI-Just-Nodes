@@ -1,3 +1,50 @@
+import os
+import numpy as np
+import torch
+from PIL import Image, ImageOps
+
+IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}
+
+
+class ImageFromFolder:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "folder": ("STRING", {"default": ""}),
+                "index": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF,
+                                   "control_after_generate": True}),
+            },
+        }
+
+    RETURN_TYPES = ("IMAGE",)
+    FUNCTION = "execute"
+    CATEGORY = "\U0001f48e Just Nodes"
+
+    def execute(self, folder, index):
+        if not os.path.isdir(folder):
+            raise FileNotFoundError(f"Folder not found: '{folder}'")
+
+        files = sorted(
+            f for f in os.listdir(folder)
+            if os.path.splitext(f)[1].lower() in IMAGE_EXTENSIONS
+        )
+
+        if not files:
+            raise FileNotFoundError(f"No images in: '{folder}'")
+
+        index = max(0, min(index, len(files) - 1))
+        path = os.path.join(folder, files[index])
+
+        img = Image.open(path)
+        img = ImageOps.exif_transpose(img)
+        img = img.convert("RGB")
+        image = np.array(img).astype(np.float32) / 255.0
+        image = torch.from_numpy(image)[None,]
+
+        return (image,)
+
+
 class PromptStack:
     @classmethod
     def INPUT_TYPES(cls):

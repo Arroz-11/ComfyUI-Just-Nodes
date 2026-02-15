@@ -4,6 +4,44 @@ app.registerExtension({
   name: "just_nodes",
 
   beforeRegisterNodeDef(nodeType, nodeData) {
+    // --- ImageFromFolder: scan button to count images ---
+    if (nodeData.name === "ImageFromFolder_JN") {
+      const onNodeCreated = nodeType.prototype.onNodeCreated;
+      nodeType.prototype.onNodeCreated = function () {
+        onNodeCreated?.apply(this, arguments);
+
+        const scanWidget = this.addWidget(
+          "button",
+          "scan folder",
+          null,
+          async () => {
+            const folderWidget = this.widgets.find(
+              (w) => w.name === "folder",
+            );
+            if (!folderWidget?.value) {
+              scanWidget.name = "no folder set";
+              this.setDirtyCanvas(true);
+              return;
+            }
+            try {
+              const resp = await fetch(
+                `/just_nodes/scan_folder?folder=${encodeURIComponent(folderWidget.value)}`,
+              );
+              const data = await resp.json();
+              scanWidget.name = `${data.count} images found`;
+            } catch {
+              scanWidget.name = "scan failed";
+            }
+            this.setDirtyCanvas(true);
+          },
+        );
+        scanWidget.serialize = false;
+        scanWidget.serializeValue = () => undefined;
+
+        this.setSize(this.computeSize());
+      };
+    }
+
     // --- Picker: dynamic input slots + refresh button ---
     if (nodeData.name === "Picker_JN") {
       const onNodeCreated = nodeType.prototype.onNodeCreated;
