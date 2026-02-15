@@ -1,0 +1,13 @@
+[project]
+name = "comfyui-just-nodes"
+description = "Utility nodes for ComfyUI: Prompt Stack, Picker, Search & Replace, and Labeled Index."
+version = "1.0.0"
+license = { file = "LICENSE" }
+
+[project.urls]
+Repository = "https://github.com/Arroz-11/ComfyUI-Just-Nodes"
+
+[tool.comfy]
+PublisherId = "agunode"
+DisplayName = "Just Nodes"
+Icon = ""
