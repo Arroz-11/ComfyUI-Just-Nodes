@@ -65,20 +65,33 @@ class Picker:
         return (lines[pick],)
 
 
-class SearchReplace:
+def _search_replace_execute(text, count, **kwargs):
+    result = text
+    for i in range(1, count + 1):
+        search = kwargs.get(f"search_{i}", "")
+        replace = kwargs.get(f"replace_{i}", "")
+        if search:
+            result = result.replace(search, replace)
+    return (result,)
+
+
+def _search_replace_inputs(count):
+    inputs = {
+        "required": {
+            "text": ("STRING", {"forceInput": True}),
+        },
+        "optional": {},
+    }
+    for i in range(1, count + 1):
+        inputs["optional"][f"search_{i}"] = ("STRING", {"default": ""})
+        inputs["optional"][f"replace_{i}"] = ("STRING", {"default": ""})
+    return inputs
+
+
+class SearchReplace_x1:
     @classmethod
     def INPUT_TYPES(cls):
-        inputs = {
-            "required": {
-                "text": ("STRING", {"forceInput": True}),
-                "pairs": ("INT", {"default": 1, "min": 1, "max": 20}),
-            },
-            "optional": {},
-        }
-        for i in range(1, 21):
-            inputs["optional"][f"search_{i}"] = ("STRING", {"default": ""})
-            inputs["optional"][f"replace_{i}"] = ("STRING", {"default": ""})
-        return inputs
+        return _search_replace_inputs(1)
 
     @classmethod
     def VALIDATE_INPUTS(cls, **kwargs):
@@ -88,14 +101,59 @@ class SearchReplace:
     FUNCTION = "execute"
     CATEGORY = "\U0001f48e Just Nodes"
 
-    def execute(self, text, pairs, **kwargs):
-        result = text
-        for i in range(1, pairs + 1):
-            search = kwargs.get(f"search_{i}", "")
-            replace = kwargs.get(f"replace_{i}", "")
-            if search:
-                result = result.replace(search, replace)
-        return (result,)
+    def execute(self, text, **kwargs):
+        return _search_replace_execute(text, 1, **kwargs)
+
+
+class SearchReplace_x3:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return _search_replace_inputs(3)
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, **kwargs):
+        return True
+
+    RETURN_TYPES = ("STRING",)
+    FUNCTION = "execute"
+    CATEGORY = "\U0001f48e Just Nodes"
+
+    def execute(self, text, **kwargs):
+        return _search_replace_execute(text, 3, **kwargs)
+
+
+class SearchReplace_x6:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return _search_replace_inputs(6)
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, **kwargs):
+        return True
+
+    RETURN_TYPES = ("STRING",)
+    FUNCTION = "execute"
+    CATEGORY = "\U0001f48e Just Nodes"
+
+    def execute(self, text, **kwargs):
+        return _search_replace_execute(text, 6, **kwargs)
+
+
+class SearchReplace_x9:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return _search_replace_inputs(9)
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, **kwargs):
+        return True
+
+    RETURN_TYPES = ("STRING",)
+    FUNCTION = "execute"
+    CATEGORY = "\U0001f48e Just Nodes"
+
+    def execute(self, text, **kwargs):
+        return _search_replace_execute(text, 9, **kwargs)
 
 
 class LabeledIndex:

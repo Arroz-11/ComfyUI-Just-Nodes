@@ -1,110 +1,10 @@
 import { app } from "../../scripts/app.js";
 
-function toggleWidget(node, widget, show = false) {
-  if (!widget) return;
-  if (node.inputs?.some((i) => i.widget?.name === widget.name)) return;
-
-  if (!widget._jn_origType) {
-    widget._jn_origType = widget.type;
-    widget._jn_origComputeSize = widget.computeSize;
-  }
-
-  if (show) {
-    widget.type = widget._jn_origType;
-    widget.computeSize = widget._jn_origComputeSize;
-    widget.hidden = false;
-    if (widget.options) widget.options.hidden = false;
-  } else {
-    widget.type = "hidden";
-    widget.computeSize = () => [0, -4];
-    widget.hidden = true;
-    if (!widget.options) widget.options = {};
-    widget.options.hidden = true;
-  }
-
-  if (widget.linkedWidgets) {
-    for (const w of widget.linkedWidgets) {
-      toggleWidget(node, w, show);
-    }
-  }
-
-  node.setSize([node.size[0], node.computeSize()[1]]);
-}
-
-function findWidget(node, name) {
-  return node.widgets?.find((w) => w.name === name);
-}
-
-// Apply mode visibility and install reactive setter via Object.defineProperty
-function setupModeToggle(node, manualWidgets, randomWidgets) {
-  const modeWidget = findWidget(node, "mode");
-  if (!modeWidget) return;
-
-  function applyVisibility() {
-    const isRandom = modeWidget.value === "random";
-    for (const name of manualWidgets)
-      toggleWidget(node, findWidget(node, name), !isRandom);
-    for (const name of randomWidgets)
-      toggleWidget(node, findWidget(node, name), isRandom);
-  }
-
-  // Install reactive setter so every change triggers visibility update
-  if (!modeWidget._jn_setter) {
-    modeWidget._jn_setter = true;
-    let currentValue = modeWidget.value;
-    Object.defineProperty(modeWidget, "value", {
-      get() {
-        return currentValue;
-      },
-      set(newValue) {
-        currentValue = newValue;
-        applyVisibility();
-      },
-      configurable: true,
-    });
-  }
-
-  applyVisibility();
-}
-
-// Apply pairs visibility and install reactive setter
-function setupPairsToggle(node) {
-  const pairsWidget = findWidget(node, "pairs");
-  if (!pairsWidget) return;
-
-  function applyVisibility() {
-    const visible = pairsWidget.value;
-    for (const w of node.widgets) {
-      const match = w.name.match(/^(search|replace)_(\d+)$/);
-      if (match) {
-        toggleWidget(node, w, parseInt(match[2]) <= visible);
-      }
-    }
-  }
-
-  if (!pairsWidget._jn_setter) {
-    pairsWidget._jn_setter = true;
-    let currentValue = pairsWidget.value;
-    Object.defineProperty(pairsWidget, "value", {
-      get() {
-        return currentValue;
-      },
-      set(newValue) {
-        currentValue = newValue;
-        applyVisibility();
-      },
-      configurable: true,
-    });
-  }
-
-  applyVisibility();
-}
-
 app.registerExtension({
   name: "just_nodes",
 
   beforeRegisterNodeDef(nodeType, nodeData) {
-    // --- Picker: dynamic input slots ---
+    // --- Picker: dynamic input slots + refresh button ---
     if (nodeData.name === "Picker_JN") {
       const onNodeCreated = nodeType.prototype.onNodeCreated;
       nodeType.prototype.onNodeCreated = function () {
@@ -158,6 +58,8 @@ app.registerExtension({
           }
           this.setDirtyCanvas(true);
         });
+
+        this.setSize(this.computeSize());
       };
 
       const onConnectionsChange = nodeType.prototype.onConnectionsChange;
@@ -196,27 +98,8 @@ app.registerExtension({
           }
         }
 
-        this.setSize([this.size[0], this.computeSize()[1]]);
+        this.setSize(this.computeSize());
       };
-    }
-  },
-
-  // nodeCreated fires AFTER ComfyUI fully creates the node (unlike onNodeCreated)
-  nodeCreated(node) {
-    const setupWithDelay = (fn) => setTimeout(() => fn(node), 10);
-
-    if (node.comfyClass === "Picker_JN") {
-      setupWithDelay((n) => setupModeToggle(n, ["line"], ["seed"]));
-    }
-
-    if (node.comfyClass === "SearchReplace_JN") {
-      setupWithDelay((n) => setupPairsToggle(n));
-    }
-
-    if (node.comfyClass === "LabeledIndex_JN") {
-      setupWithDelay((n) =>
-        setupModeToggle(n, ["value"], ["seed", "min", "max"]),
-      );
     }
   },
 });
