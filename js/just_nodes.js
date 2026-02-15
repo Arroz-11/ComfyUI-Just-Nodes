@@ -32,8 +32,10 @@ function updateModeVisibility(node, manualWidgets, randomWidgets) {
   if (!modeWidget) return;
   const isRandom = modeWidget.value === "random";
 
-  for (const name of manualWidgets) toggleWidget(node, findWidget(node, name), !isRandom);
-  for (const name of randomWidgets) toggleWidget(node, findWidget(node, name), isRandom);
+  for (const name of manualWidgets)
+    toggleWidget(node, findWidget(node, name), !isRandom);
+  for (const name of randomWidgets)
+    toggleWidget(node, findWidget(node, name), isRandom);
 
   updateNodeHeight(node);
 }
@@ -108,8 +110,12 @@ app.registerExtension({
         });
 
         // Mode visibility: manual=line, random=seed
+        // Defer to let ComfyUI finish adding all widgets (e.g. control_after_generate)
+        const self = this;
         hookModeWidget(this, ["line"], ["seed"]);
-        updateModeVisibility(this, ["line"], ["seed"]);
+        setTimeout(() => {
+          updateModeVisibility(self, ["line"], ["seed"]);
+        }, 0);
       };
 
       const onConnectionsChange = nodeType.prototype.onConnectionsChange;
@@ -154,7 +160,9 @@ app.registerExtension({
       const onConfigure = nodeType.prototype.onConfigure;
       nodeType.prototype.onConfigure = function (data) {
         onConfigure?.apply(this, arguments);
-        updateModeVisibility(this, ["line"], ["seed"]);
+        setTimeout(() => {
+          updateModeVisibility(this, ["line"], ["seed"]);
+        }, 0);
       };
     }
 
@@ -178,22 +186,30 @@ app.registerExtension({
       const onNodeCreated = nodeType.prototype.onNodeCreated;
       nodeType.prototype.onNodeCreated = function () {
         onNodeCreated?.apply(this, arguments);
-        updatePairsVisibility(this);
 
+        const self = this;
         const pairsWidget = findWidget(this, "pairs");
         if (pairsWidget) {
           const origCallback = pairsWidget.callback;
           pairsWidget.callback = (value) => {
             origCallback?.call(pairsWidget, value);
-            updatePairsVisibility(this);
+            updatePairsVisibility(self);
           };
         }
+
+        // Defer initial hide to let ComfyUI finish widget setup
+        setTimeout(() => {
+          updatePairsVisibility(self);
+        }, 0);
       };
 
       const onConfigure = nodeType.prototype.onConfigure;
       nodeType.prototype.onConfigure = function (data) {
         onConfigure?.apply(this, arguments);
-        updatePairsVisibility(this);
+        const self = this;
+        setTimeout(() => {
+          updatePairsVisibility(self);
+        }, 0);
       };
     }
 
@@ -202,14 +218,23 @@ app.registerExtension({
       const onNodeCreated = nodeType.prototype.onNodeCreated;
       nodeType.prototype.onNodeCreated = function () {
         onNodeCreated?.apply(this, arguments);
+
+        const self = this;
         hookModeWidget(this, ["value"], ["seed", "min", "max"]);
-        updateModeVisibility(this, ["value"], ["seed", "min", "max"]);
+
+        // Defer to let ComfyUI finish adding control_after_generate for seed
+        setTimeout(() => {
+          updateModeVisibility(self, ["value"], ["seed", "min", "max"]);
+        }, 0);
       };
 
       const onConfigure = nodeType.prototype.onConfigure;
       nodeType.prototype.onConfigure = function (data) {
         onConfigure?.apply(this, arguments);
-        updateModeVisibility(this, ["value"], ["seed", "min", "max"]);
+        const self = this;
+        setTimeout(() => {
+          updateModeVisibility(self, ["value"], ["seed", "min", "max"]);
+        }, 0);
       };
     }
   },
