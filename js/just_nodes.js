@@ -9,8 +9,18 @@ function toggleWidget(node, widget, show = false) {
     widget._jn_origComputeSize = widget.computeSize;
   }
 
-  widget.type = show ? widget._jn_origType : "jnHidden";
-  widget.computeSize = show ? widget._jn_origComputeSize : () => [0, -4];
+  if (show) {
+    widget.type = widget._jn_origType;
+    widget.computeSize = widget._jn_origComputeSize;
+    widget.hidden = false;
+    if (widget.options) widget.options.hidden = false;
+  } else {
+    widget.type = "hidden";
+    widget.computeSize = () => [0, -4];
+    widget.hidden = true;
+    if (!widget.options) widget.options = {};
+    widget.options.hidden = true;
+  }
 
   if (widget.linkedWidgets) {
     for (const w of widget.linkedWidgets) {
@@ -18,10 +28,7 @@ function toggleWidget(node, widget, show = false) {
     }
   }
 
-  const height = show
-    ? Math.max(node.computeSize()[1], node.size[1])
-    : node.computeSize()[1];
-  node.setSize([node.size[0], height]);
+  node.setSize([node.size[0], node.computeSize()[1]]);
 }
 
 function findWidget(node, name) {
