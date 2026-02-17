@@ -84,6 +84,8 @@ app.registerExtension({
               });
             }
 
+            console.log("[ModelChecker] sending nodes:", JSON.stringify(nodes, null, 2));
+
             try {
               const resp = await fetch("/just_nodes/check_models", {
                 method: "POST",
