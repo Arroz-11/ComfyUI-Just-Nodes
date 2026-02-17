@@ -228,3 +228,16 @@ class LabeledIndex:
                 max = min
             return (seed % (max - min + 1) + min,)
         return (value,)
+
+
+class ModelChecker:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {}}
+
+    RETURN_TYPES = ()
+    FUNCTION = "execute"
+    CATEGORY = "\U0001f48e Just Nodes"
+
+    def execute(self):
+        return {}

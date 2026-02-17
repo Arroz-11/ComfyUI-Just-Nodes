@@ -42,6 +42,117 @@ app.registerExtension({
       };
     }
 
+    // --- ModelChecker: check models button + report ---
+    if (nodeData.name === "ModelChecker_JN") {
+      const onNodeCreated = nodeType.prototype.onNodeCreated;
+      nodeType.prototype.onNodeCreated = function () {
+        onNodeCreated?.apply(this, arguments);
+
+        const reportEl = document.createElement("textarea");
+        reportEl.className = "comfy-multiline-input";
+        reportEl.readOnly = true;
+        reportEl.placeholder = "click 'check models' to scan workflow";
+        reportEl.style.fontSize = "10px";
+        reportEl.style.fontFamily = "monospace";
+        reportEl.style.cursor = "default";
+
+        const btn = this.addWidget(
+          "button",
+          "check models",
+          null,
+          async () => {
+            btn.name = "checking...";
+            this.setDirtyCanvas(true);
+
+            const nodes = [];
+            for (const n of app.graph._nodes) {
+              const widgets = {};
+              for (const w of n.widgets || []) {
+                if (
+                  w.name &&
+                  w.value !== undefined &&
+                  typeof w.value === "string"
+                ) {
+                  widgets[w.name] = w.value;
+                }
+              }
+              nodes.push({
+                id: n.id,
+                type: n.type,
+                title: n.title || n.type,
+                widgets,
+              });
+            }
+
+            try {
+              const resp = await fetch("/just_nodes/check_models", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ nodes }),
+              });
+              const data = await resp.json();
+              const fc = data.found.length;
+              const mc = data.missing.length;
+
+              if (mc > 0) {
+                btn.name = `\u2717 ${mc} missing, ${fc} found`;
+              } else if (fc > 0) {
+                btn.name = `\u2713 ${fc} models OK`;
+              } else {
+                btn.name = "no models in workflow";
+              }
+
+              let report = "";
+              if (mc > 0) {
+                report += "MISSING:\n";
+                for (const m of data.missing) {
+                  report += `  [${m.node_id}] ${m.title}\n    ${m.input}: ${m.model}\n`;
+                }
+              }
+              if (fc > 0) {
+                if (report) report += "\n";
+                report += "FOUND:\n";
+                for (const f of data.found) {
+                  report += `  [${f.node_id}] ${f.title}\n    ${f.input}: ${f.model}\n`;
+                }
+              }
+
+              reportEl.value =
+                report || "No model references found in workflow";
+            } catch (e) {
+              btn.name = "check failed";
+              reportEl.value = "Error: " + e.message;
+            }
+
+            this.setSize(this.computeSize());
+            this.setDirtyCanvas(true);
+          },
+        );
+        btn.serialize = false;
+        btn.serializeValue = () => undefined;
+
+        const reportWidget = this.addDOMWidget(
+          "report",
+          "customtext",
+          reportEl,
+          {
+            getValue() {
+              return reportEl.value;
+            },
+            setValue(v) {
+              reportEl.value = v;
+            },
+            serialize: false,
+          },
+        );
+        reportWidget.inputEl = reportEl;
+        reportWidget.serialize = false;
+        reportWidget.serializeValue = () => undefined;
+
+        this.setSize(this.computeSize());
+      };
+    }
+
     // --- Picker: dynamic input slots + refresh button ---
     if (nodeData.name === "Picker_JN") {
       const onNodeCreated = nodeType.prototype.onNodeCreated;
