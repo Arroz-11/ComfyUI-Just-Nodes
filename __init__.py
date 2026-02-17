@@ -66,6 +66,7 @@ async def check_models(request):
 
     found = []
     missing = []
+    debug = []
 
     for node_info in workflow_nodes:
         class_type = node_info.get("type", "")
@@ -75,11 +76,14 @@ async def check_models(request):
 
         node_class = comfy_nodes.NODE_CLASS_MAPPINGS.get(class_type)
         if not node_class:
+            if widgets:
+                debug.append(f"[{node_id}] {class_type}: class not in NODE_CLASS_MAPPINGS")
             continue
 
         try:
             input_types = node_class.INPUT_TYPES()
-        except Exception:
+        except Exception as e:
+            debug.append(f"[{node_id}] {class_type}: INPUT_TYPES error: {e}")
             continue
 
         for category in ("required", "optional"):
@@ -116,4 +120,4 @@ async def check_models(request):
                 else:
                     missing.append(entry)
 
-    return web.json_response({"found": found, "missing": missing})
+    return web.json_response({"found": found, "missing": missing, "debug": debug})

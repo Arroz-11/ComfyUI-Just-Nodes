@@ -93,6 +93,7 @@ app.registerExtension({
                 body: JSON.stringify({ nodes }),
               });
               const data = await resp.json();
+              console.log("[ModelChecker] response:", JSON.stringify(data, null, 2));
               const fc = data.found.length;
               const mc = data.missing.length;
 
