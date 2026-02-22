@@ -156,7 +156,57 @@ app.registerExtension({
       };
     }
 
-    // --- Picker: dynamic input slots + refresh button ---
+    // --- Picker fixed variants: refresh_lines button ---
+    const pickerVariants = ["Picker_x1_JN", "Picker_x3_JN", "Picker_x6_JN", "Picker_x9_JN", "Picker_x12_JN"];
+    if (pickerVariants.includes(nodeData.name)) {
+      const onNodeCreated = nodeType.prototype.onNodeCreated;
+      nodeType.prototype.onNodeCreated = function () {
+        onNodeCreated?.apply(this, arguments);
+
+        const refreshWidget = this.addWidget("button", "refresh_lines", null, () => {
+          const graph = app.graph;
+          for (const inp of this.inputs) {
+            if (!inp.name.startsWith("text_")) continue;
+            const num = inp.name.match(/^text_(\d+)/)?.[1];
+            if (!num) continue;
+
+            if (inp.link != null) {
+              const linkInfo = graph.links[inp.link];
+              if (linkInfo) {
+                const sourceNode = graph.getNodeById(linkInfo.origin_id);
+                if (sourceNode) {
+                  let text = "";
+                  for (const w of sourceNode.widgets || []) {
+                    if (
+                      w.type === "customtext" ||
+                      w.type === "text" ||
+                      w.type === "STRING"
+                    ) {
+                      text = w.value || "";
+                      break;
+                    }
+                  }
+                  const lineCount = text
+                    .split("\n")
+                    .filter((l) => l.trim()).length;
+                  inp.label = `text_${num}: ${lineCount} lines`;
+                }
+              }
+            } else {
+              inp.label = `text_${num}`;
+            }
+          }
+          this.setDirtyCanvas(true);
+        });
+
+        refreshWidget.serialize = false;
+        refreshWidget.serializeValue = () => undefined;
+
+        this.setSize(this.computeSize());
+      };
+    }
+
+    // --- Picker (dynamic): dynamic input slots + refresh button ---
     if (nodeData.name === "Picker_JN") {
       const onNodeCreated = nodeType.prototype.onNodeCreated;
       nodeType.prototype.onNodeCreated = function () {

@@ -113,6 +113,131 @@ class Picker:
         return (lines[pick],)
 
 
+def _picker_inputs(count):
+    inputs = {
+        "required": {
+            "select": ("INT", {"default": 0, "min": 0, "max": count - 1}),
+            "mode": (["manual", "random"],),
+            "line": ("INT", {"default": 0, "min": 0}),
+            "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
+        },
+        "optional": {},
+    }
+    for i in range(1, count + 1):
+        inputs["optional"][f"text_{i}"] = ("STRING", {"forceInput": True})
+    return inputs
+
+
+def _picker_execute(select, mode, line, seed, count, **kwargs):
+    connected = []
+    for i in range(1, count + 1):
+        key = f"text_{i}"
+        if key in kwargs and kwargs[key] is not None:
+            connected.append(kwargs[key])
+
+    if not connected:
+        return ("",)
+
+    slot = max(0, min(select, len(connected) - 1))
+    text = connected[slot]
+    lines = [ln for ln in text.split("\n") if ln.strip()]
+
+    if not lines:
+        return ("",)
+
+    if mode == "random":
+        pick = seed % len(lines)
+    else:
+        pick = max(0, min(line, len(lines) - 1))
+
+    return (lines[pick],)
+
+
+class Picker_x1:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return _picker_inputs(1)
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, **kwargs):
+        return True
+
+    RETURN_TYPES = ("STRING",)
+    FUNCTION = "execute"
+    CATEGORY = "\U0001f48e Just Nodes"
+
+    def execute(self, select, mode, line, seed, **kwargs):
+        return _picker_execute(select, mode, line, seed, 1, **kwargs)
+
+
+class Picker_x3:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return _picker_inputs(3)
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, **kwargs):
+        return True
+
+    RETURN_TYPES = ("STRING",)
+    FUNCTION = "execute"
+    CATEGORY = "\U0001f48e Just Nodes"
+
+    def execute(self, select, mode, line, seed, **kwargs):
+        return _picker_execute(select, mode, line, seed, 3, **kwargs)
+
+
+class Picker_x6:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return _picker_inputs(6)
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, **kwargs):
+        return True
+
+    RETURN_TYPES = ("STRING",)
+    FUNCTION = "execute"
+    CATEGORY = "\U0001f48e Just Nodes"
+
+    def execute(self, select, mode, line, seed, **kwargs):
+        return _picker_execute(select, mode, line, seed, 6, **kwargs)
+
+
+class Picker_x9:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return _picker_inputs(9)
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, **kwargs):
+        return True
+
+    RETURN_TYPES = ("STRING",)
+    FUNCTION = "execute"
+    CATEGORY = "\U0001f48e Just Nodes"
+
+    def execute(self, select, mode, line, seed, **kwargs):
+        return _picker_execute(select, mode, line, seed, 9, **kwargs)
+
+
+class Picker_x12:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return _picker_inputs(12)
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, **kwargs):
+        return True
+
+    RETURN_TYPES = ("STRING",)
+    FUNCTION = "execute"
+    CATEGORY = "\U0001f48e Just Nodes"
+
+    def execute(self, select, mode, line, seed, **kwargs):
+        return _picker_execute(select, mode, line, seed, 12, **kwargs)
+
+
 def _search_replace_execute(text, count, **kwargs):
     result = text
     for i in range(1, count + 1):
@@ -202,6 +327,23 @@ class SearchReplace_x9:
 
     def execute(self, text, **kwargs):
         return _search_replace_execute(text, 9, **kwargs)
+
+
+class SearchReplace_x12:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return _search_replace_inputs(12)
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, **kwargs):
+        return True
+
+    RETURN_TYPES = ("STRING",)
+    FUNCTION = "execute"
+    CATEGORY = "\U0001f48e Just Nodes"
+
+    def execute(self, text, **kwargs):
+        return _search_replace_execute(text, 12, **kwargs)
 
 
 class LabeledIndex:
