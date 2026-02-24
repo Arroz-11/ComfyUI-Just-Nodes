@@ -1,7 +1,12 @@
 import os
+import re
+from pathlib import Path
 import numpy as np
 import torch
 from PIL import Image, ImageOps
+import folder_paths
+import comfy.sd
+import comfy.utils
 
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}
 
@@ -383,3 +388,81 @@ class ModelChecker:
 
     def execute(self):
         return {}
+
+
+class LoraTagModelOnly:
+    TAG_PATTERN = r"\<[0-9a-zA-Z\:\_\-\.\s\/\(\)\\\\]+\>"
+
+    def __init__(self):
+        self.loaded_loras = {}
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "model": ("MODEL",),
+                "text": ("STRING", {"multiline": True}),
+            },
+        }
+
+    RETURN_TYPES = ("MODEL",)
+    RETURN_NAMES = ("MODEL",)
+    FUNCTION = "execute"
+    CATEGORY = "\U0001f48e Just Nodes"
+
+    def execute(self, model, text):
+        founds = re.findall(self.TAG_PATTERN, text)
+        if not founds:
+            return (model,)
+
+        model_lora = model
+        lora_files = folder_paths.get_filename_list("loras")
+        used_paths = set()
+
+        for f in founds:
+            tag = f[1:-1]
+            pak = tag.split(":")
+            if pak[0] != "lora":
+                continue
+            if len(pak) < 2 or not pak[1]:
+                continue
+
+            name = pak[1]
+            strength = 0.0
+            try:
+                if len(pak) > 2 and pak[2]:
+                    strength = float(pak[2])
+            except ValueError:
+                continue
+
+            lora_name = None
+            for lora_file in lora_files:
+                if Path(lora_file).name.startswith(name) or lora_file.startswith(name):
+                    lora_name = lora_file
+                    break
+
+            if lora_name is None:
+                print(f"[LoraTagModelOnly] not found: <lora:{name}:{strength}>")
+                continue
+
+            lora_path = folder_paths.get_full_path("loras", lora_name)
+            if lora_path is None:
+                continue
+
+            used_paths.add(lora_path)
+            print(f"[LoraTagModelOnly] applying: <lora:{name}:{strength}> -> {lora_name}")
+
+            if lora_path in self.loaded_loras:
+                lora = self.loaded_loras[lora_path]
+            else:
+                lora = comfy.utils.load_torch_file(lora_path, safe_load=True)
+                self.loaded_loras[lora_path] = lora
+
+            model_lora, _ = comfy.sd.load_lora_for_models(
+                model_lora, None, lora, strength, 0
+            )
+
+        for k in [k for k in self.loaded_loras if k not in used_paths]:
+            del self.loaded_loras[k]
+
+        return (model_lora,)

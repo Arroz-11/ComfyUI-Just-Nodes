@@ -18,6 +18,7 @@ from .nodes import (
     SearchReplace_x12,
     LabeledIndex,
     ModelChecker,
+    LoraTagModelOnly,
     IMAGE_EXTENSIONS,
 )
 
@@ -37,6 +38,7 @@ NODE_CLASS_MAPPINGS = {
     "SearchReplace_x12_JN": SearchReplace_x12,
     "LabeledIndex_JN": LabeledIndex,
     "ModelChecker_JN": ModelChecker,
+    "LoraTagModelOnly_JN": LoraTagModelOnly,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -55,6 +57,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SearchReplace_x12_JN": "Search & Replace x12 \U0001f48e Just Nodes",
     "LabeledIndex_JN": "Labeled Index \U0001f48e Just Nodes",
     "ModelChecker_JN": "Model Checker \U0001f48e Just Nodes",
+    "LoraTagModelOnly_JN": "LoRA Tag (Model Only) \U0001f48e Just Nodes",
 }
 
 WEB_DIRECTORY = "./js"
