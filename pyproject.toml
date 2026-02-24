@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-just-nodes"
 description = "Utility nodes for ComfyUI: Prompt Stack, Picker, Search & Replace, and Labeled Index."
-version = "2.5.3"
+version = "2.5.4"
 license = { file = "LICENSE" }
 
 [project.urls]

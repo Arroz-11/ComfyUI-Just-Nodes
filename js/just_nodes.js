@@ -3,45 +3,20 @@ import { api } from "../../scripts/api.js";
 
 // --- BatchStepper: JS-side queue management (preserves downstream cache) ---
 (function () {
-  let batchStepperInPrompt = false;
-
-  api.addEventListener("execution_start", () => {
-    batchStepperInPrompt = false;
-  });
-
-  api.addEventListener("execution_cached", (event) => {
-    const cached = event.detail?.nodes || [];
-    for (const id of cached) {
-      const node = app.graph.getNodeById(parseInt(id));
-      if (node && node.type === "BatchStepper_JN") {
-        batchStepperInPrompt = true;
-      }
-    }
-  });
-
   api.addEventListener("executing", (event) => {
-    const nodeId = event.detail;
-    if (nodeId === null) {
-      // prompt finished
-      if (batchStepperInPrompt) {
-        batchStepperInPrompt = false;
-        handleBatchStepperQueue();
-      }
-      return;
+    // Handle both formats: event.detail can be string/null or {node: string/null}
+    const detail = event.detail;
+    const nodeId =
+      typeof detail === "object" && detail !== null ? detail.node : detail;
+    if (nodeId == null) {
+      handleBatchStepperQueue();
     }
-    const node = app.graph.getNodeById(parseInt(nodeId));
-    if (node && node.type === "BatchStepper_JN") {
-      batchStepperInPrompt = true;
-    }
-  });
-
-  api.addEventListener("execution_error", () => {
-    batchStepperInPrompt = false;
   });
 
   function handleBatchStepperQueue() {
     for (const node of app.graph._nodes) {
       if (node.type !== "BatchStepper_JN") continue;
+      if (node.mode !== 0) continue; // skip muted/bypassed
 
       const modeW = node.widgets.find((w) => w.name === "mode");
       if (!modeW || !modeW.value) continue;
@@ -90,6 +65,13 @@ app.registerExtension({
         });
         runWidget.serialize = false;
         runWidget.serializeValue = () => undefined;
+
+        // Move run widget right after total_runs (position 1)
+        const idx = this.widgets.indexOf(runWidget);
+        if (idx > 1) {
+          this.widgets.splice(idx, 1);
+          this.widgets.splice(1, 0, runWidget);
+        }
 
         this.setSize(this.computeSize());
       };
