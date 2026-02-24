@@ -19,6 +19,7 @@ from .nodes import (
     LabeledIndex,
     ModelChecker,
     LoraTagModelOnly,
+    BatchStepper,
     IMAGE_EXTENSIONS,
 )
 
@@ -39,6 +40,7 @@ NODE_CLASS_MAPPINGS = {
     "LabeledIndex_JN": LabeledIndex,
     "ModelChecker_JN": ModelChecker,
     "LoraTagModelOnly_JN": LoraTagModelOnly,
+    "BatchStepper_JN": BatchStepper,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -58,6 +60,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "LabeledIndex_JN": "Labeled Index \U0001f48e Just Nodes",
     "ModelChecker_JN": "Model Checker \U0001f48e Just Nodes",
     "LoraTagModelOnly_JN": "LoRA Tag (Model Only) \U0001f48e Just Nodes",
+    "BatchStepper_JN": "Batch Stepper \U0001f48e Just Nodes",
 }
 
 WEB_DIRECTORY = "./js"

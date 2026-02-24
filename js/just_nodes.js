@@ -1,4 +1,21 @@
 import { app } from "../../scripts/app.js";
+import { api } from "../../scripts/api.js";
+
+// --- BatchStepper: widget feedback + auto-queue ---
+api.addEventListener("just-nodes-feedback", (event) => {
+  const nodes = app.graph._nodes_by_id;
+  const node = nodes[event.detail.node_id];
+  if (node) {
+    const w = node.widgets.find((w) => w.name === event.detail.widget_name);
+    if (w) {
+      w.value = event.detail.value;
+    }
+  }
+});
+
+api.addEventListener("just-nodes-add-queue", () => {
+  app.queuePrompt(0, 1);
+});
 
 app.registerExtension({
   name: "just_nodes",
