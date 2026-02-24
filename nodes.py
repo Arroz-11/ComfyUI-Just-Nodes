@@ -74,13 +74,10 @@ class Picker:
     def INPUT_TYPES(cls):
         inputs = {
             "required": {
-                "select": ("INT", {"default": 0, "min": 0, "max": 19,
-                                   "control_after_generate": "fixed"}),
+                "select": ("INT", {"default": 0, "min": 0, "max": 19}),
                 "mode": (["manual", "random"],),
-                "line": ("INT", {"default": 0, "min": 0,
-                                 "control_after_generate": "fixed"}),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF,
-                                 "control_after_generate": "randomize"}),
+                "line": ("INT", {"default": 0, "min": 0}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
             },
             "optional": {},
         }
@@ -124,13 +121,10 @@ class Picker:
 def _picker_inputs(count):
     inputs = {
         "required": {
-            "select": ("INT", {"default": 0, "min": 0, "max": count - 1,
-                               "control_after_generate": "fixed"}),
+            "select": ("INT", {"default": 0, "min": 0, "max": count - 1}),
             "mode": (["manual", "random"],),
-            "line": ("INT", {"default": 0, "min": 0,
-                             "control_after_generate": "fixed"}),
-            "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF,
-                             "control_after_generate": "randomize"}),
+            "line": ("INT", {"default": 0, "min": 0}),
+            "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
         },
         "optional": {},
     }
