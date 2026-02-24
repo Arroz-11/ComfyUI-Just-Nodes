@@ -7,7 +7,6 @@ from PIL import Image, ImageOps
 import folder_paths
 import comfy.sd
 import comfy.utils
-from server import PromptServer
 
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}
 
@@ -474,36 +473,18 @@ class BatchStepper:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "run": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
                 "total_runs": ("INT", {"default": 10, "min": 1, "max": 0xFFFFFFFFFFFFFFFF}),
                 "step": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
                 "step_limit": ("INT", {"default": 5, "min": 1, "max": 0xFFFFFFFFFFFFFFFF}),
                 "mode": ("BOOLEAN", {"default": True, "label_on": "Run", "label_off": "Stop"}),
             },
-            "hidden": {"unique_id": "UNIQUE_ID"},
         }
 
-    RETURN_TYPES = ("INT", "INT")
-    RETURN_NAMES = ("step", "run")
+    RETURN_TYPES = ("INT",)
+    RETURN_NAMES = ("select",)
     FUNCTION = "execute"
     CATEGORY = "\U0001f48e Just Nodes"
     OUTPUT_NODE = True
 
-    def execute(self, run, total_runs, step, step_limit, mode, unique_id):
-        if mode:
-            if run < total_runs - 1:
-                PromptServer.instance.send_sync("just-nodes-feedback",
-                    {"node_id": unique_id, "widget_name": "run", "type": "int", "value": run + 1})
-                PromptServer.instance.send_sync("just-nodes-add-queue", {})
-            else:
-                PromptServer.instance.send_sync("just-nodes-feedback",
-                    {"node_id": unique_id, "widget_name": "run", "type": "int", "value": 0})
-                if step < step_limit - 1:
-                    PromptServer.instance.send_sync("just-nodes-feedback",
-                        {"node_id": unique_id, "widget_name": "step", "type": "int", "value": step + 1})
-                    PromptServer.instance.send_sync("just-nodes-add-queue", {})
-                else:
-                    PromptServer.instance.send_sync("just-nodes-feedback",
-                        {"node_id": unique_id, "widget_name": "step", "type": "int", "value": 0})
-
-        return (step, run)
+    def execute(self, total_runs, step, step_limit, mode):
+        return (step,)

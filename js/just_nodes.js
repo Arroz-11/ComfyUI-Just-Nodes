@@ -1,26 +1,100 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 
-// --- BatchStepper: widget feedback + auto-queue ---
-api.addEventListener("just-nodes-feedback", (event) => {
-  const nodes = app.graph._nodes_by_id;
-  const node = nodes[event.detail.node_id];
-  if (node) {
-    const w = node.widgets.find((w) => w.name === event.detail.widget_name);
-    if (w) {
-      w.value = event.detail.value;
+// --- BatchStepper: JS-side queue management (preserves downstream cache) ---
+(function () {
+  let batchStepperInPrompt = false;
+
+  api.addEventListener("execution_start", () => {
+    batchStepperInPrompt = false;
+  });
+
+  api.addEventListener("execution_cached", (event) => {
+    const cached = event.detail?.nodes || [];
+    for (const id of cached) {
+      const node = app.graph.getNodeById(parseInt(id));
+      if (node && node.type === "BatchStepper_JN") {
+        batchStepperInPrompt = true;
+      }
+    }
+  });
+
+  api.addEventListener("executing", (event) => {
+    const nodeId = event.detail;
+    if (nodeId === null) {
+      // prompt finished
+      if (batchStepperInPrompt) {
+        batchStepperInPrompt = false;
+        handleBatchStepperQueue();
+      }
+      return;
+    }
+    const node = app.graph.getNodeById(parseInt(nodeId));
+    if (node && node.type === "BatchStepper_JN") {
+      batchStepperInPrompt = true;
+    }
+  });
+
+  api.addEventListener("execution_error", () => {
+    batchStepperInPrompt = false;
+  });
+
+  function handleBatchStepperQueue() {
+    for (const node of app.graph._nodes) {
+      if (node.type !== "BatchStepper_JN") continue;
+
+      const modeW = node.widgets.find((w) => w.name === "mode");
+      if (!modeW || !modeW.value) continue;
+
+      const runW = node.widgets.find((w) => w.name === "run");
+      const totalRunsW = node.widgets.find((w) => w.name === "total_runs");
+      const stepW = node.widgets.find((w) => w.name === "step");
+      const stepLimitW = node.widgets.find((w) => w.name === "step_limit");
+
+      const run = runW ? runW.value : 0;
+      const totalRuns = totalRunsW.value;
+      const step = stepW.value;
+      const stepLimit = stepLimitW.value;
+
+      if (run < totalRuns - 1) {
+        if (runW) runW.value = run + 1;
+        app.queuePrompt(0, 1);
+      } else {
+        if (runW) runW.value = 0;
+        if (step < stepLimit - 1) {
+          stepW.value = step + 1;
+          app.queuePrompt(0, 1);
+        } else {
+          stepW.value = 0;
+        }
+      }
     }
   }
-});
-
-api.addEventListener("just-nodes-add-queue", () => {
-  app.queuePrompt(0, 1);
-});
+})();
 
 app.registerExtension({
   name: "just_nodes",
 
   beforeRegisterNodeDef(nodeType, nodeData) {
+    // --- BatchStepper: add run counter widget (display only, not sent to backend) ---
+    if (nodeData.name === "BatchStepper_JN") {
+      const onNodeCreated = nodeType.prototype.onNodeCreated;
+      nodeType.prototype.onNodeCreated = function () {
+        onNodeCreated?.apply(this, arguments);
+
+        const runWidget = this.addWidget("number", "run", 0, () => {}, {
+          min: 0,
+          max: 0xffffffffffff,
+          step: 1,
+          precision: 0,
+        });
+        runWidget.serialize = false;
+        runWidget.serializeValue = () => undefined;
+
+        this.setSize(this.computeSize());
+      };
+    }
+
     // --- ImageFromFolder: scan button to count images ---
     if (nodeData.name === "ImageFromFolder_JN") {
       const onNodeCreated = nodeType.prototype.onNodeCreated;
