@@ -516,7 +516,7 @@ class PresetManager:
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
                 "prompt_template": ("STRING", {
                     "multiline": True,
-                    "default": "A casual iPhone Pro selfie of a striking, attractive woman, close-up portrait from shoulders up, centered, straight-on eye-level angle. {AGE} years old. {ETHNICITY} woman with {SKIN_TONE}, {BUILD} build. {FACE_SHAPE} face, normal forehead. {EYE_COLOR} {EYE_SHAPE}. {NOSE}. {LIPS}. {EYEBROWS}. {FACE_DETAILS}. {MAKEUP}. {EXPRESSION}. {HAIR_COLOR} {HAIR_LENGTH} {HAIR_STYLE} hair. Real natural skin texture. Natural light, gentle catchlights in eyes, everything in focus, sharp background. Simple indoor background, light neutral tones."
+                    "default": "A beautiful {COLOR} {TYPE} flower, {SIZE} size, in a garden."
                 }),
             },
             "optional": {
