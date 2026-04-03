@@ -1,0 +1,7 @@
+{
+  "EXAMPLE - FLOWER": {
+    "COLOR": {"mode": "random"},
+    "TYPE": {"mode": "manual", "value": "rose"},
+    "SIZE": {"mode": "manual", "value": "large"}
+  }
+}

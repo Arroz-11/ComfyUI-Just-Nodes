@@ -229,6 +229,47 @@ app.registerExtension({
       };
     }
 
+    // --- PresetManager: reload presets button ---
+    if (nodeData.name === "PresetManager_JN") {
+      const onNodeCreated = nodeType.prototype.onNodeCreated;
+      nodeType.prototype.onNodeCreated = function () {
+        onNodeCreated?.apply(this, arguments);
+
+        const reloadWidget = this.addWidget(
+          "button",
+          "reload presets",
+          null,
+          async () => {
+            try {
+              const resp = await fetch("/just_nodes/reload_presets");
+              const data = await resp.json();
+              if (data.presets && data.presets.length > 0) {
+                const presetWidget = this.widgets.find(
+                  (w) => w.name === "preset",
+                );
+                if (presetWidget) {
+                  presetWidget.options.values = data.presets;
+                  if (!data.presets.includes(presetWidget.value)) {
+                    presetWidget.value = data.presets[0];
+                  }
+                  reloadWidget.name = `✓ ${data.presets.length} presets loaded`;
+                }
+              } else {
+                reloadWidget.name = "no presets found";
+              }
+            } catch {
+              reloadWidget.name = "reload failed";
+            }
+            this.setDirtyCanvas(true);
+          },
+        );
+        reloadWidget.serialize = false;
+        reloadWidget.serializeValue = () => undefined;
+
+        this.setSize(this.computeSize());
+      };
+    }
+
     // --- Picker fixed variants: refresh_lines button ---
     const pickerVariants = ["Picker_x1_JN", "Picker_x3_JN", "Picker_x6_JN", "Picker_x9_JN", "Picker_x12_JN"];
     if (pickerVariants.includes(nodeData.name)) {

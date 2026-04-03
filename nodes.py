@@ -1,5 +1,7 @@
 import os
 import re
+import json
+import random
 from pathlib import Path
 import numpy as np
 import torch
@@ -7,6 +9,8 @@ from PIL import Image, ImageOps
 import folder_paths
 import comfy.sd
 import comfy.utils
+
+PRESETS_DIR = os.path.join(os.path.dirname(__file__), "presets")
 
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}
 
@@ -488,3 +492,88 @@ class BatchStepper:
 
     def execute(self, total_runs, step, step_limit, mode):
         return (step,)
+
+
+def _load_preset_names():
+    """Load preset names from presets.json for the dropdown."""
+    presets_file = os.path.join(PRESETS_DIR, "presets.json")
+    if not os.path.isfile(presets_file):
+        return ["NO PRESETS FOUND"]
+    try:
+        with open(presets_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return list(data.keys()) if data else ["EMPTY"]
+    except Exception:
+        return ["ERROR LOADING PRESETS"]
+
+
+class PresetManager:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "preset": (_load_preset_names(),),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
+                "prompt_template": ("STRING", {
+                    "multiline": True,
+                    "default": "A casual iPhone Pro selfie of a striking, attractive woman, close-up portrait from shoulders up, centered, straight-on eye-level angle. {AGE} years old. {ETHNICITY} woman with {SKIN_TONE}, {BUILD} build. {FACE_SHAPE} face, normal forehead. {EYE_COLOR} {EYE_SHAPE}. {NOSE}. {LIPS}. {EYEBROWS}. {FACE_DETAILS}. {MAKEUP}. {EXPRESSION}. {HAIR_COLOR} {HAIR_LENGTH} {HAIR_STYLE} hair. Real natural skin texture. Natural light, gentle catchlights in eyes, everything in focus, sharp background. Simple indoor background, light neutral tones."
+                }),
+            },
+            "optional": {
+                "preset_index": ("INT", {"default": -1, "min": -1, "max": 999}),
+            },
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("prompt",)
+    FUNCTION = "execute"
+    CATEGORY = "\U0001f48e Just Nodes"
+
+    @classmethod
+    def IS_CHANGED(cls, **kwargs):
+        return float("nan")
+
+    def execute(self, preset, seed, prompt_template, preset_index=-1):
+        # Load presets and lists
+        presets_file = os.path.join(PRESETS_DIR, "presets.json")
+        lists_file = os.path.join(PRESETS_DIR, "lists.json")
+
+        with open(presets_file, "r", encoding="utf-8") as f:
+            presets = json.load(f)
+
+        with open(lists_file, "r", encoding="utf-8") as f:
+            lists = json.load(f)
+
+        # If preset_index is >= 0, use it instead of the dropdown
+        if preset_index >= 0:
+            preset_names = list(presets.keys())
+            if preset_index < len(preset_names):
+                preset = preset_names[preset_index]
+            else:
+                return (f"ERROR: preset_index {preset_index} out of range (max {len(preset_names) - 1})",)
+
+        if preset not in presets:
+            return ("ERROR: Preset not found",)
+
+        preset_config = presets[preset]
+        rng = random.Random(seed)
+        values = {}
+
+        for var_name, var_config in preset_config.items():
+            mode = var_config.get("mode", "random")
+
+            if mode == "manual":
+                values[var_name] = var_config.get("value", "")
+            else:
+                # Random: pick from the list
+                if var_name in lists and lists[var_name]:
+                    values[var_name] = rng.choice(lists[var_name])
+                else:
+                    values[var_name] = ""
+
+        # Replace {VARIABLES} in the template
+        result = prompt_template
+        for var_name, var_value in values.items():
+            result = result.replace(f"{{{var_name}}}", var_value)
+
+        return (result,)

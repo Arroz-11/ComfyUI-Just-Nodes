@@ -20,6 +20,7 @@ from .nodes import (
     ModelChecker,
     LoraTagModelOnly,
     BatchStepper,
+    PresetManager,
     IMAGE_EXTENSIONS,
 )
 
@@ -41,6 +42,7 @@ NODE_CLASS_MAPPINGS = {
     "ModelChecker_JN": ModelChecker,
     "LoraTagModelOnly_JN": LoraTagModelOnly,
     "BatchStepper_JN": BatchStepper,
+    "PresetManager_JN": PresetManager,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -61,9 +63,23 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "ModelChecker_JN": "Model Checker \U0001f48e Just Nodes",
     "LoraTagModelOnly_JN": "LoRA Tag (Model Only) \U0001f48e Just Nodes",
     "BatchStepper_JN": "Batch Stepper \U0001f48e Just Nodes",
+    "PresetManager_JN": "Preset Manager \U0001f48e Just Nodes",
 }
 
 WEB_DIRECTORY = "./js"
+
+
+@PromptServer.instance.routes.get("/just_nodes/reload_presets")
+async def reload_presets(request):
+    presets_file = os.path.join(os.path.dirname(__file__), "presets", "presets.json")
+    if not os.path.isfile(presets_file):
+        return web.json_response({"presets": [], "error": "presets.json not found"})
+    try:
+        with open(presets_file, "r", encoding="utf-8") as f:
+            data = __import__("json").load(f)
+        return web.json_response({"presets": list(data.keys())})
+    except Exception as e:
+        return web.json_response({"presets": [], "error": str(e)})
 
 
 @PromptServer.instance.routes.get("/just_nodes/scan_folder")

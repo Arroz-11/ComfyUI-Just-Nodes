@@ -1,0 +1,5 @@
+{
+  "COLOR": ["red", "blue", "yellow", "white", "pink", "purple", "orange"],
+  "TYPE": ["rose", "tulip", "daisy", "sunflower", "lily", "orchid"],
+  "SIZE": ["small", "medium", "large"]
+}
