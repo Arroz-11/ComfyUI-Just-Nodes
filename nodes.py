@@ -586,42 +586,110 @@ class PresetManager:
 
 class SaveImageWithText:
     def __init__(self):
-        self.output_dir = folder_paths.get_output_directory()
+        self.counter = 0
 
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
                 "image": ("IMAGE",),
-                "text": ("STRING", {"multiline": True, "default": ""}),
+                "path": ("STRING", {"default": "output"}),
                 "filename_prefix": ("STRING", {"default": "JN"}),
+                "filename_delimiter": ("STRING", {"default": "_"}),
+                "filename_padding": ("INT", {"default": 4, "min": 1, "max": 9}),
+                "extension": (["png", "jpg", "webp"],),
+                "quality": ("INT", {"default": 100, "min": 1, "max": 100}),
+                "embed_workflow": ("BOOLEAN", {"default": False}),
+                "show_preview": ("BOOLEAN", {"default": True}),
+            },
+            "optional": {
+                "text": ("STRING", {"forceInput": True}),
+            },
+            "hidden": {
+                "prompt": "PROMPT",
+                "extra_pnginfo": "EXTRA_PNGINFO",
             },
         }
 
-    RETURN_TYPES = ()
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("filepath",)
     FUNCTION = "execute"
     OUTPUT_NODE = True
     CATEGORY = "\U0001f48e Just Nodes"
 
-    def execute(self, image, text, filename_prefix):
+    def execute(self, image, path, filename_prefix, filename_delimiter,
+                filename_padding, extension, quality, embed_workflow,
+                show_preview, text=None, prompt=None, extra_pnginfo=None):
         from PIL.PngImagePlugin import PngInfo
+        from datetime import datetime
+
+        # Resolve path
+        if not os.path.isabs(path):
+            path = os.path.join(folder_paths.get_output_directory(), path)
+        os.makedirs(path, exist_ok=True)
+
+        # Find next counter
+        existing = [f for f in os.listdir(path) if f.startswith(filename_prefix)]
+        counter = len(existing)
 
         results = []
+        filepaths = []
+
         for i in range(image.shape[0]):
             img = image[i]
             img_np = (img.cpu().numpy() * 255).astype(np.uint8)
             pil_img = Image.fromarray(img_np)
 
-            metadata = PngInfo()
-            metadata.add_text("just_text", text)
+            num = str(counter + i).zfill(filename_padding)
+            filename = f"{filename_prefix}{filename_delimiter}{num}.{extension}"
+            filepath = os.path.join(path, filename)
 
-            file = f"{filename_prefix}_{random.randint(0, 0xFFFFFFFF):08x}.png"
-            filepath = os.path.join(self.output_dir, file)
-            pil_img.save(filepath, pnginfo=metadata)
+            save_kwargs = {}
 
-            results.append({"filename": file, "subfolder": "", "type": "output"})
+            if extension == "png":
+                metadata = PngInfo()
+                if text:
+                    metadata.add_text("just_text", text)
+                if embed_workflow:
+                    if prompt is not None:
+                        metadata.add_text("prompt", json.dumps(prompt))
+                    if extra_pnginfo is not None:
+                        for k, v in extra_pnginfo.items():
+                            metadata.add_text(k, json.dumps(v))
+                save_kwargs["pnginfo"] = metadata
 
-        return {"ui": {"images": results}}
+            elif extension == "jpg":
+                save_kwargs["quality"] = quality
+                pil_img = pil_img.convert("RGB")
+
+            elif extension == "webp":
+                save_kwargs["quality"] = quality
+                save_kwargs["lossless"] = quality == 100
+
+            pil_img.save(filepath, **save_kwargs)
+
+            # For jpg/webp, embed text as companion .txt file
+            if extension != "png" and text:
+                txt_path = os.path.splitext(filepath)[0] + ".txt"
+                with open(txt_path, "w", encoding="utf-8") as f:
+                    f.write(text)
+
+            filepaths.append(filepath)
+
+            if show_preview:
+                # Get relative path for ComfyUI preview
+                output_dir = folder_paths.get_output_directory()
+                try:
+                    rel = os.path.relpath(path, output_dir)
+                except ValueError:
+                    rel = ""
+                results.append({
+                    "filename": filename,
+                    "subfolder": rel if rel != "." else "",
+                    "type": "output",
+                })
+
+        return {"ui": {"images": results}, "result": (filepaths[0] if filepaths else "",)}
 
 
 class LoadImageWithText:
