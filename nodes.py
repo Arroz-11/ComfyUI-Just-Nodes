@@ -550,7 +550,7 @@ class PresetManager:
             if preset_index < len(preset_names):
                 preset = preset_names[preset_index]
             else:
-                return (f"ERROR: preset_index {preset_index} out of range (max {len(preset_names) - 1})",", "")
+                return (f"ERROR: preset_index {preset_index} out of range (max {len(preset_names) - 1})", "")
 
         if preset not in presets:
             return ("ERROR: Preset not found", "")
