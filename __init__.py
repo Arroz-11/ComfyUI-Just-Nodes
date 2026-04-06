@@ -21,6 +21,8 @@ from .nodes import (
     LoraTagModelOnly,
     BatchStepper,
     PresetManager,
+    SaveImageWithText,
+    LoadImageWithText,
     IMAGE_EXTENSIONS,
 )
 
@@ -43,6 +45,8 @@ NODE_CLASS_MAPPINGS = {
     "LoraTagModelOnly_JN": LoraTagModelOnly,
     "BatchStepper_JN": BatchStepper,
     "PresetManager_JN": PresetManager,
+    "SaveImageWithText_JN": SaveImageWithText,
+    "LoadImageWithText_JN": LoadImageWithText,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -64,6 +68,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "LoraTagModelOnly_JN": "LoRA Tag (Model Only) \U0001f48e Just Nodes",
     "BatchStepper_JN": "Batch Stepper \U0001f48e Just Nodes",
     "PresetManager_JN": "Preset Manager \U0001f48e Just Nodes",
+    "SaveImageWithText_JN": "Save Image With Text \U0001f48e Just Nodes",
+    "LoadImageWithText_JN": "Load Image With Text \U0001f48e Just Nodes",
 }
 
 WEB_DIRECTORY = "./js"

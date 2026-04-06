@@ -524,8 +524,8 @@ class PresetManager:
             },
         }
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("prompt",)
+    RETURN_TYPES = ("STRING", "STRING",)
+    RETURN_NAMES = ("prompt", "extra_text",)
     FUNCTION = "execute"
     CATEGORY = "\U0001f48e Just Nodes"
 
@@ -550,16 +550,21 @@ class PresetManager:
             if preset_index < len(preset_names):
                 preset = preset_names[preset_index]
             else:
-                return (f"ERROR: preset_index {preset_index} out of range (max {len(preset_names) - 1})",)
+                return (f"ERROR: preset_index {preset_index} out of range (max {len(preset_names) - 1})",", "")
 
         if preset not in presets:
-            return ("ERROR: Preset not found",)
+            return ("ERROR: Preset not found", "")
 
         preset_config = presets[preset]
         rng = random.Random(seed)
         values = {}
+        extra_text = ""
 
         for var_name, var_config in preset_config.items():
+            if var_name == "_extra_text":
+                extra_text = var_config if isinstance(var_config, str) else str(var_config)
+                continue
+
             mode = var_config.get("mode", "random")
 
             if mode == "manual":
@@ -576,4 +581,102 @@ class PresetManager:
         for var_name, var_value in values.items():
             result = result.replace(f"{{{var_name}}}", var_value)
 
-        return (result,)
+        return (result, extra_text,)
+
+
+class SaveImageWithText:
+    def __init__(self):
+        self.output_dir = folder_paths.get_output_directory()
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "text": ("STRING", {"multiline": True, "default": ""}),
+                "filename_prefix": ("STRING", {"default": "JN"}),
+            },
+        }
+
+    RETURN_TYPES = ()
+    FUNCTION = "execute"
+    OUTPUT_NODE = True
+    CATEGORY = "\U0001f48e Just Nodes"
+
+    def execute(self, image, text, filename_prefix):
+        from PIL.PngImagePlugin import PngInfo
+
+        results = []
+        for i in range(image.shape[0]):
+            img = image[i]
+            img_np = (img.cpu().numpy() * 255).astype(np.uint8)
+            pil_img = Image.fromarray(img_np)
+
+            metadata = PngInfo()
+            metadata.add_text("just_text", text)
+
+            file = f"{filename_prefix}_{random.randint(0, 0xFFFFFFFF):08x}.png"
+            filepath = os.path.join(self.output_dir, file)
+            pil_img.save(filepath, pnginfo=metadata)
+
+            results.append({"filename": file, "subfolder": "", "type": "output"})
+
+        return {"ui": {"images": results}}
+
+
+class LoadImageWithText:
+    @classmethod
+    def INPUT_TYPES(cls):
+        input_dir = folder_paths.get_input_directory()
+        files = sorted([
+            f for f in os.listdir(input_dir)
+            if os.path.splitext(f)[1].lower() in IMAGE_EXTENSIONS
+        ])
+        return {
+            "required": {
+                "image": (files, {"image_upload": True}),
+            },
+        }
+
+    RETURN_TYPES = ("IMAGE", "MASK", "STRING",)
+    RETURN_NAMES = ("image", "mask", "text",)
+    FUNCTION = "execute"
+    CATEGORY = "\U0001f48e Just Nodes"
+
+    def execute(self, image):
+        image_path = folder_paths.get_annotated_filepath(image)
+
+        pil_img = Image.open(image_path)
+        pil_img = ImageOps.exif_transpose(pil_img)
+
+        # Extract text from PNG metadata
+        text = ""
+        if hasattr(pil_img, "info") and "just_text" in pil_img.info:
+            text = pil_img.info["just_text"]
+
+        img = pil_img.convert("RGB")
+        img_np = np.array(img).astype(np.float32) / 255.0
+        img_tensor = torch.from_numpy(img_np)[None,]
+
+        if "A" in pil_img.getbands():
+            mask = np.array(pil_img.getchannel("A")).astype(np.float32) / 255.0
+            mask = 1.0 - torch.from_numpy(mask)
+        else:
+            mask = torch.zeros((64, 64), dtype=torch.float32)
+
+        return (img_tensor, mask.unsqueeze(0), text,)
+
+    @classmethod
+    def IS_CHANGED(cls, image):
+        image_path = folder_paths.get_annotated_filepath(image)
+        import hashlib
+        m = hashlib.sha256()
+        with open(image_path, "rb") as f:
+            m.update(f.read())
+        return m.digest().hex()
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, image):
+        if not folder_paths.exists_annotated_filepath(image):
+            return f"Invalid image file: {image}"
+        return True
