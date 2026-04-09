@@ -581,6 +581,10 @@ class PresetManager:
         for var_name, var_value in values.items():
             result = result.replace(f"{{{var_name}}}", var_value)
 
+        # Replace {VARIABLES} in extra_text too
+        for var_name, var_value in values.items():
+            extra_text = extra_text.replace(f"{{{var_name}}}", var_value)
+
         return (result, extra_text,)
 
 
