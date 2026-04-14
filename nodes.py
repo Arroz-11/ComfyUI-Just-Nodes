@@ -524,8 +524,8 @@ class PresetManager:
             },
         }
 
-    RETURN_TYPES = ("STRING", "STRING",)
-    RETURN_NAMES = ("prompt", "extra_text",)
+    RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING",)
+    RETURN_NAMES = ("prompt", "extra_text", "output_path", "output_prefix",)
     FUNCTION = "execute"
     CATEGORY = "\U0001f48e Just Nodes"
 
@@ -560,6 +560,8 @@ class PresetManager:
         values = {}
         extra_text = ""
         template_from_preset = ""
+        output_path = ""
+        output_prefix = ""
 
         for var_name, var_config in preset_config.items():
             if var_name == "_extra_text":
@@ -567,6 +569,12 @@ class PresetManager:
                 continue
             if var_name == "_template":
                 template_from_preset = var_config if isinstance(var_config, str) else str(var_config)
+                continue
+            if var_name == "_output_path":
+                output_path = var_config if isinstance(var_config, str) else str(var_config)
+                continue
+            if var_name == "_output_prefix":
+                output_prefix = var_config if isinstance(var_config, str) else str(var_config)
                 continue
 
             mode = var_config.get("mode", "random")
@@ -586,7 +594,7 @@ class PresetManager:
         elif template_from_preset:
             result = template_from_preset
         else:
-            return ("ERROR: No template provided and no _template in preset", "")
+            return ("ERROR: No template provided and no _template in preset", "", "", "")
 
         # Replace {VARIABLES} in the template
         for var_name, var_value in values.items():
@@ -596,7 +604,7 @@ class PresetManager:
         for var_name, var_value in values.items():
             extra_text = extra_text.replace(f"{{{var_name}}}", var_value)
 
-        return (result, extra_text,)
+        return (result, extra_text, output_path, output_prefix,)
 
 
 class SaveImageWithText:
