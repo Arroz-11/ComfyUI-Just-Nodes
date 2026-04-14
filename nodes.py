@@ -559,10 +559,14 @@ class PresetManager:
         rng = random.Random(seed)
         values = {}
         extra_text = ""
+        template_from_preset = ""
 
         for var_name, var_config in preset_config.items():
             if var_name == "_extra_text":
                 extra_text = var_config if isinstance(var_config, str) else str(var_config)
+                continue
+            if var_name == "_template":
+                template_from_preset = var_config if isinstance(var_config, str) else str(var_config)
                 continue
 
             mode = var_config.get("mode", "random")
@@ -576,8 +580,15 @@ class PresetManager:
                 else:
                     values[var_name] = ""
 
+        # Use prompt_template if provided, otherwise use _template from preset
+        if prompt_template.strip():
+            result = prompt_template
+        elif template_from_preset:
+            result = template_from_preset
+        else:
+            return ("ERROR: No template provided and no _template in preset", "")
+
         # Replace {VARIABLES} in the template
-        result = prompt_template
         for var_name, var_value in values.items():
             result = result.replace(f"{{{var_name}}}", var_value)
 
