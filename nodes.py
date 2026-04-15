@@ -26,7 +26,8 @@ class ImageFromFolder:
             },
         }
 
-    RETURN_TYPES = ("IMAGE",)
+    RETURN_TYPES = ("IMAGE", "STRING",)
+    RETURN_NAMES = ("image", "text",)
     FUNCTION = "execute"
     CATEGORY = "\U0001f48e Just Nodes"
 
@@ -48,11 +49,17 @@ class ImageFromFolder:
 
         img = Image.open(path)
         img = ImageOps.exif_transpose(img)
+
+        # Extract text from PNG metadata
+        text = ""
+        if hasattr(img, "info") and "just_text" in img.info:
+            text = img.info["just_text"]
+
         img = img.convert("RGB")
         image = np.array(img).astype(np.float32) / 255.0
         image = torch.from_numpy(image)[None,]
 
-        return (image,)
+        return (image, text,)
 
 
 class PromptStack:
