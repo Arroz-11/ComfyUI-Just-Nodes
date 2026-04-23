@@ -653,14 +653,26 @@ class SaveImageWithText:
         from PIL.PngImagePlugin import PngInfo
         from datetime import datetime
 
+        import re
+
         # Resolve path
         if not os.path.isabs(path):
             path = os.path.join(folder_paths.get_output_directory(), path)
         os.makedirs(path, exist_ok=True)
 
-        # Find next counter
-        existing = [f for f in os.listdir(path) if f.startswith(filename_prefix)]
-        counter = len(existing)
+        # Find next counter — regex-based, starts at 1 when folder is empty,
+        # takes max existing number + 1 otherwise (syncs with WAS Save Text File).
+        dot_ext = f".{extension}"
+        if filename_delimiter:
+            pattern = f"^{re.escape(filename_prefix)}{re.escape(filename_delimiter)}(\\d{{{filename_padding}}}){re.escape(dot_ext)}$"
+        else:
+            pattern = f"^{re.escape(filename_prefix)}(\\d{{{filename_padding}}}){re.escape(dot_ext)}$"
+        existing_nums = []
+        for f in os.listdir(path):
+            m = re.match(pattern, f)
+            if m:
+                existing_nums.append(int(m.group(1)))
+        counter = max(existing_nums) + 1 if existing_nums else 1
 
         results = []
         filepaths = []
@@ -673,6 +685,13 @@ class SaveImageWithText:
             num = str(counter + i).zfill(filename_padding)
             filename = f"{filename_prefix}{filename_delimiter}{num}.{extension}"
             filepath = os.path.join(path, filename)
+
+            # Guard against collisions
+            while os.path.exists(filepath):
+                counter += 1
+                num = str(counter + i).zfill(filename_padding)
+                filename = f"{filename_prefix}{filename_delimiter}{num}.{extension}"
+                filepath = os.path.join(path, filename)
 
             save_kwargs = {}
 
