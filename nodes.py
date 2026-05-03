@@ -528,11 +528,19 @@ class PresetManager:
             },
             "optional": {
                 "preset_index": ("INT", {"default": -1, "min": -1, "max": 999}),
+                "negative_template": ("STRING", {
+                    "multiline": True,
+                    "default": ""
+                }),
+                "extra_text_override": ("STRING", {
+                    "multiline": True,
+                    "default": ""
+                }),
             },
         }
 
-    RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING",)
-    RETURN_NAMES = ("prompt", "extra_text", "output_path", "output_prefix",)
+    RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING", "STRING",)
+    RETURN_NAMES = ("prompt", "extra_text", "output_path", "output_prefix", "negative",)
     FUNCTION = "execute"
     CATEGORY = "\U0001f48e Just Nodes"
 
@@ -540,7 +548,8 @@ class PresetManager:
     def IS_CHANGED(cls, **kwargs):
         return float("nan")
 
-    def execute(self, preset, seed, prompt_template, preset_index=-1):
+    def execute(self, preset, seed, prompt_template, preset_index=-1,
+                negative_template="", extra_text_override=""):
         # Load presets and lists
         presets_file = os.path.join(PRESETS_DIR, "presets.json")
         lists_file = os.path.join(PRESETS_DIR, "lists.json")
@@ -557,25 +566,29 @@ class PresetManager:
             if preset_index < len(preset_names):
                 preset = preset_names[preset_index]
             else:
-                return (f"ERROR: preset_index {preset_index} out of range (max {len(preset_names) - 1})", "")
+                return (f"ERROR: preset_index {preset_index} out of range (max {len(preset_names) - 1})", "", "", "", "")
 
         if preset not in presets:
-            return ("ERROR: Preset not found", "")
+            return ("ERROR: Preset not found", "", "", "", "")
 
         preset_config = presets[preset]
         rng = random.Random(seed)
         values = {}
-        extra_text = ""
+        extra_text_from_preset = ""
         template_from_preset = ""
+        negative_from_preset = ""
         output_path = ""
         output_prefix = ""
 
         for var_name, var_config in preset_config.items():
             if var_name == "_extra_text":
-                extra_text = var_config if isinstance(var_config, str) else str(var_config)
+                extra_text_from_preset = var_config if isinstance(var_config, str) else str(var_config)
                 continue
             if var_name == "_template":
                 template_from_preset = var_config if isinstance(var_config, str) else str(var_config)
+                continue
+            if var_name == "_negative":
+                negative_from_preset = var_config if isinstance(var_config, str) else str(var_config)
                 continue
             if var_name == "_output_path":
                 output_path = var_config if isinstance(var_config, str) else str(var_config)
@@ -595,23 +608,34 @@ class PresetManager:
                 else:
                     values[var_name] = ""
 
-        # Use prompt_template if provided, otherwise use _template from preset
+        # Resolve POSITIVE: input > preset _template > error
         if prompt_template.strip():
             result = prompt_template
         elif template_from_preset:
             result = template_from_preset
         else:
-            return ("ERROR: No template provided and no _template in preset", "", "", "")
+            return ("ERROR: No template provided and no _template in preset", "", "", "", "")
 
-        # Replace {VARIABLES} in the template
+        # Resolve NEGATIVE: input > preset _negative > empty
+        if negative_template.strip():
+            negative = negative_template
+        else:
+            negative = negative_from_preset
+
+        # Resolve EXTRA_TEXT: input override > preset _extra_text > empty
+        if extra_text_override.strip():
+            extra_text = extra_text_override
+        else:
+            extra_text = extra_text_from_preset
+
+        # Replace {VARIABLES} in all resolved fields (template substitution)
         for var_name, var_value in values.items():
-            result = result.replace(f"{{{var_name}}}", var_value)
+            placeholder = f"{{{var_name}}}"
+            result = result.replace(placeholder, var_value)
+            extra_text = extra_text.replace(placeholder, var_value)
+            negative = negative.replace(placeholder, var_value)
 
-        # Replace {VARIABLES} in extra_text too
-        for var_name, var_value in values.items():
-            extra_text = extra_text.replace(f"{{{var_name}}}", var_value)
-
-        return (result, extra_text, output_path, output_prefix,)
+        return (result, extra_text, output_path, output_prefix, negative,)
 
 
 class SaveImageWithText:
