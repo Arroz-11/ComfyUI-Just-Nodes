@@ -577,6 +577,7 @@ class PresetManager:
         extra_text_from_preset = ""
         template_from_preset = ""
         negative_from_preset = ""
+        pool_from_preset = None
         output_path = ""
         output_prefix = ""
 
@@ -589,6 +590,9 @@ class PresetManager:
                 continue
             if var_name == "_negative":
                 negative_from_preset = var_config if isinstance(var_config, str) else str(var_config)
+                continue
+            if var_name == "_pool":
+                pool_from_preset = var_config if isinstance(var_config, list) else None
                 continue
             if var_name == "_output_path":
                 output_path = var_config if isinstance(var_config, str) else str(var_config)
@@ -608,23 +612,41 @@ class PresetManager:
                 else:
                     values[var_name] = ""
 
-        # Resolve POSITIVE: input > preset _template > error
+        # If _pool exists, pick one entry by seed (synchronized positive/negative/extra_text)
+        pool_positive = ""
+        pool_negative = ""
+        pool_extra_text = ""
+        if pool_from_preset and len(pool_from_preset) > 0:
+            pool_idx = seed % len(pool_from_preset)
+            selected = pool_from_preset[pool_idx]
+            if isinstance(selected, dict):
+                pool_positive = str(selected.get("positive", ""))
+                pool_negative = str(selected.get("negative", ""))
+                pool_extra_text = str(selected.get("extra_text", ""))
+
+        # Resolve POSITIVE: input > pool > preset _template > error
         if prompt_template.strip():
             result = prompt_template
+        elif pool_positive:
+            result = pool_positive
         elif template_from_preset:
             result = template_from_preset
         else:
-            return ("ERROR: No template provided and no _template in preset", "", "", "", "")
+            return ("ERROR: No template provided and no _template/_pool in preset", "", "", "", "")
 
-        # Resolve NEGATIVE: input > preset _negative > empty
+        # Resolve NEGATIVE: input > pool > preset _negative > empty
         if negative_template.strip():
             negative = negative_template
+        elif pool_negative:
+            negative = pool_negative
         else:
             negative = negative_from_preset
 
-        # Resolve EXTRA_TEXT: input override > preset _extra_text > empty
+        # Resolve EXTRA_TEXT: input override > pool > preset _extra_text > empty
         if extra_text_override.strip():
             extra_text = extra_text_override
+        elif pool_extra_text:
+            extra_text = pool_extra_text
         else:
             extra_text = extra_text_from_preset
 
