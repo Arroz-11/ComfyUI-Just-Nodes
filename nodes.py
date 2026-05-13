@@ -536,11 +536,15 @@ class PresetManager:
                     "multiline": True,
                     "default": ""
                 }),
+                "system_prompt_override": ("STRING", {
+                    "multiline": True,
+                    "default": ""
+                }),
             },
         }
 
-    RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING", "STRING",)
-    RETURN_NAMES = ("prompt", "extra_text", "output_path", "output_prefix", "negative",)
+    RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING", "STRING", "STRING",)
+    RETURN_NAMES = ("prompt", "extra_text", "output_path", "output_prefix", "negative", "system_prompt",)
     FUNCTION = "execute"
     CATEGORY = "\U0001f48e Just Nodes"
 
@@ -549,7 +553,7 @@ class PresetManager:
         return float("nan")
 
     def execute(self, preset, seed, prompt_template, preset_index=-1,
-                negative_template="", extra_text_override=""):
+                negative_template="", extra_text_override="", system_prompt_override=""):
         # Load presets and lists
         presets_file = os.path.join(PRESETS_DIR, "presets.json")
         lists_file = os.path.join(PRESETS_DIR, "lists.json")
@@ -566,10 +570,10 @@ class PresetManager:
             if preset_index < len(preset_names):
                 preset = preset_names[preset_index]
             else:
-                return (f"ERROR: preset_index {preset_index} out of range (max {len(preset_names) - 1})", "", "", "", "")
+                return (f"ERROR: preset_index {preset_index} out of range (max {len(preset_names) - 1})", "", "", "", "", "")
 
         if preset not in presets:
-            return ("ERROR: Preset not found", "", "", "", "")
+            return ("ERROR: Preset not found", "", "", "", "", "")
 
         preset_config = presets[preset]
         rng = random.Random(seed)
@@ -577,6 +581,7 @@ class PresetManager:
         extra_text_from_preset = ""
         template_from_preset = ""
         negative_from_preset = ""
+        system_prompt_from_preset = ""
         pool_from_preset = None
         output_path = ""
         output_prefix = ""
@@ -590,6 +595,9 @@ class PresetManager:
                 continue
             if var_name == "_negative":
                 negative_from_preset = var_config if isinstance(var_config, str) else str(var_config)
+                continue
+            if var_name == "_system_prompt":
+                system_prompt_from_preset = var_config if isinstance(var_config, str) else str(var_config)
                 continue
             if var_name == "_pool":
                 pool_from_preset = var_config if isinstance(var_config, list) else None
@@ -612,10 +620,11 @@ class PresetManager:
                 else:
                     values[var_name] = ""
 
-        # If _pool exists, pick one entry by seed (synchronized positive/negative/extra_text)
+        # If _pool exists, pick one entry by seed (synchronized positive/negative/extra_text/system_prompt)
         pool_positive = ""
         pool_negative = ""
         pool_extra_text = ""
+        pool_system_prompt = ""
         if pool_from_preset and len(pool_from_preset) > 0:
             pool_idx = seed % len(pool_from_preset)
             selected = pool_from_preset[pool_idx]
@@ -623,6 +632,7 @@ class PresetManager:
                 pool_positive = str(selected.get("positive", ""))
                 pool_negative = str(selected.get("negative", ""))
                 pool_extra_text = str(selected.get("extra_text", ""))
+                pool_system_prompt = str(selected.get("system_prompt", ""))
 
         # Resolve POSITIVE: input > pool > preset _template > error
         if prompt_template.strip():
@@ -632,7 +642,7 @@ class PresetManager:
         elif template_from_preset:
             result = template_from_preset
         else:
-            return ("ERROR: No template provided and no _template/_pool in preset", "", "", "", "")
+            return ("ERROR: No template provided and no _template/_pool in preset", "", "", "", "", "")
 
         # Resolve NEGATIVE: input > pool > preset _negative > empty
         if negative_template.strip():
@@ -650,14 +660,23 @@ class PresetManager:
         else:
             extra_text = extra_text_from_preset
 
+        # Resolve SYSTEM_PROMPT: input override > pool > preset _system_prompt > empty
+        if system_prompt_override.strip():
+            system_prompt = system_prompt_override
+        elif pool_system_prompt:
+            system_prompt = pool_system_prompt
+        else:
+            system_prompt = system_prompt_from_preset
+
         # Replace {VARIABLES} in all resolved fields (template substitution)
         for var_name, var_value in values.items():
             placeholder = f"{{{var_name}}}"
             result = result.replace(placeholder, var_value)
             extra_text = extra_text.replace(placeholder, var_value)
             negative = negative.replace(placeholder, var_value)
+            system_prompt = system_prompt.replace(placeholder, var_value)
 
-        return (result, extra_text, output_path, output_prefix, negative,)
+        return (result, extra_text, output_path, output_prefix, negative, system_prompt,)
 
 
 class SaveImageWithText:

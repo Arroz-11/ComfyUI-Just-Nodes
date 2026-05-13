@@ -19,6 +19,26 @@ Takes text input and applies search/replace pairs sequentially. Pairs appear as 
 ### Labeled Index
 Decorative labels alongside an integer passthrough. Write label names in the multiline field as visual reference — the output is the `value` integer unchanged.
 
+### Preset Manager
+Loads presets from `presets/presets.json` and `presets/lists.json`. Resolves `{VARIABLE}` placeholders in templates using either manual values or random picks from lists. Supports synchronized pools and an LLM system prompt slot.
+
+**Outputs (6):**
+
+| Output | Source | Notes |
+|---|---|---|
+| `prompt` | input `prompt_template` > pool `positive` > preset `_template` | required path |
+| `extra_text` | input `extra_text_override` > pool `extra_text` > preset `_extra_text` | optional |
+| `output_path` | preset `_output_path` | for `SaveImageWithText_JN` |
+| `output_prefix` | preset `_output_prefix` | for `SaveImageWithText_JN` |
+| `negative` | input `negative_template` > pool `negative` > preset `_negative` | optional |
+| `system_prompt` | input `system_prompt_override` > pool `system_prompt` > preset `_system_prompt` | for LLM nodes (e.g. QwenVL) |
+
+**Preset special fields:** `_template`, `_extra_text`, `_negative`, `_system_prompt`, `_pool`, `_output_path`, `_output_prefix`.
+
+**Pool entries** are dicts with keys `positive`, `negative`, `extra_text`, `system_prompt`. If `_pool` is defined, the seed selects `seed % len(pool)` and bypasses `_template`/`_extra_text`/`_negative`/`_system_prompt`.
+
+**Variable modes:** `"mode": "manual"` (uses `value`) or `"mode": "random"` (picks from `lists.json[VAR_NAME]`).
+
 ## Installation
 
 ### ComfyUI Manager
