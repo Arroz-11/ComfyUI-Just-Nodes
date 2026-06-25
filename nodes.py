@@ -10,6 +10,8 @@ import folder_paths
 import comfy.sd
 import comfy.utils
 
+from .preset_loader import load_all_presets
+
 PRESETS_DIR = os.path.join(os.path.dirname(__file__), "presets")
 
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}
@@ -502,13 +504,9 @@ class BatchStepper:
 
 
 def _load_preset_names():
-    """Load preset names from presets.json for the dropdown."""
-    presets_file = os.path.join(PRESETS_DIR, "presets.json")
-    if not os.path.isfile(presets_file):
-        return ["NO PRESETS FOUND"]
+    """Load preset names from all presets_*.json files (merged) for the dropdown."""
     try:
-        with open(presets_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        data = load_all_presets(PRESETS_DIR)
         return list(data.keys()) if data else ["EMPTY"]
     except Exception:
         return ["ERROR LOADING PRESETS"]
@@ -554,12 +552,9 @@ class PresetManager:
 
     def execute(self, preset, seed, prompt_template, preset_index=-1,
                 negative_template="", extra_text_override="", system_prompt_override=""):
-        # Load presets and lists
-        presets_file = os.path.join(PRESETS_DIR, "presets.json")
+        # Load presets (merged from presets_*.json) and lists (shared, single file)
         lists_file = os.path.join(PRESETS_DIR, "lists.json")
-
-        with open(presets_file, "r", encoding="utf-8") as f:
-            presets = json.load(f)
+        presets = load_all_presets(PRESETS_DIR)
 
         with open(lists_file, "r", encoding="utf-8") as f:
             lists = json.load(f)

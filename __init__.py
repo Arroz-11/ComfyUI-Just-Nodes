@@ -25,6 +25,7 @@ from .nodes import (
     LoadImageWithText,
     IMAGE_EXTENSIONS,
 )
+from .preset_loader import load_all_presets
 
 NODE_CLASS_MAPPINGS = {
     "ImageFromFolder_JN": ImageFromFolder,
@@ -77,12 +78,9 @@ WEB_DIRECTORY = "./js"
 
 @PromptServer.instance.routes.get("/just_nodes/reload_presets")
 async def reload_presets(request):
-    presets_file = os.path.join(os.path.dirname(__file__), "presets", "presets.json")
-    if not os.path.isfile(presets_file):
-        return web.json_response({"presets": [], "error": "presets.json not found"})
+    presets_dir = os.path.join(os.path.dirname(__file__), "presets")
     try:
-        with open(presets_file, "r", encoding="utf-8") as f:
-            data = __import__("json").load(f)
+        data = load_all_presets(presets_dir)
         return web.json_response({"presets": list(data.keys())})
     except Exception as e:
         return web.json_response({"presets": [], "error": str(e)})
