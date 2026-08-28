@@ -7,3 +7,9 @@ __pycache__/
 dist/
 build/
 .claude/
+
+# Personal character presets & backups — NEVER commit (public repo)
+presets/presets_P*.json
+presets/presets_general.json
+presets/*.bak*
+presets/*.old-monolitico

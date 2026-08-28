@@ -20,7 +20,7 @@ Takes text input and applies search/replace pairs sequentially. Pairs appear as 
 Decorative labels alongside an integer passthrough. Write label names in the multiline field as visual reference — the output is the `value` integer unchanged.
 
 ### Preset Manager
-Loads presets from `presets/presets.json` and `presets/lists.json`. Resolves `{VARIABLE}` placeholders in templates using either manual values or random picks from lists. Supports synchronized pools and an LLM system prompt slot.
+Loads presets from `presets/presets_*.json` files (one per character, see `presets_example.json`) and `presets/lists.json`. Resolves `{VARIABLE}` placeholders in templates using either manual values or random picks from lists. Supports synchronized pools and an LLM system prompt slot.
 
 **Outputs (6):**
 
