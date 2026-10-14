@@ -32,6 +32,11 @@ class LoraGroupModelOnly:
         for index, row in enumerate(rows, 1):
             if not isinstance(row, dict):
                 raise ValueError(f"LoRA {index}: invalid row.")
+            enabled = row.get("enabled", True)
+            if not isinstance(enabled, bool):
+                raise ValueError(f"LoRA {index}: enabled must be true or false.")
+            if not enabled:
+                continue
             name = row.get("lora", "")
             weight = row.get("weight", 1.0)
             if isinstance(weight, bool) or not isinstance(weight, (int, float)) or not math.isfinite(weight) or not -100 <= weight <= 100:

@@ -5,7 +5,7 @@ Utility nodes for ComfyUI that solve common tasks without chaining multiple node
 ## Nodes
 
 ### LoRA Group (Model Only)
-Load up to 12 LoRAs in one node with a MODEL input and MODEL output. Starts with one empty row; use **Add LoRA** to add another or remove individual rows. Each row has a LoRA dropdown, model weight, and a note header you can rename and color. A general note describes the whole group. Notes and colors are saved in the workflow.
+Load up to 12 LoRAs in one node with a MODEL input and MODEL output. Starts with one empty row; use **Add LoRA** to add another or remove individual rows. Each row has an **On/Off** toggle, a LoRA dropdown, model weight, and a note header you can rename and color. Off skips loading while keeping the file, weight, and note. Rename the node to describe the group. Notes, colors, and On/Off states are saved in the workflow. Workflows saved before toggles were added default to On.
 
 **Refresh LoRA list** updates available files without replacing your selections. Missing files are marked. LoRAs are applied in order using ComfyUI's core `LoraLoaderModelOnly`, with no CLIP or fuse. Weight zero skips a row. Supports classic nodes and Nodes 2.0.
 

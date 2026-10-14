@@ -70,9 +70,8 @@ app.registerExtension({
       data.type = "jn_lora_data";
       data.computeSize = () => [0, -4];
       data.draw = () => {};
-      data.serializeValue = () => JSON.stringify(node.properties.lora_rows.map(({ lora, weight }) => ({ lora, weight })));
-      this.properties.group_note ??= "";
-      this.properties.lora_rows ??= [{ note: "", lora: "", weight: 1 }];
+      data.serializeValue = () => JSON.stringify(node.properties.lora_rows.map(({ lora, weight, enabled = true }) => ({ lora, weight, enabled })));
+      this.properties.lora_rows ??= [{ note: "", lora: "", weight: 1, enabled: true }];
       this.jnLoraFiles = [];
       this.jnRefreshGeneration = 0;
       this.jnChange = function (change) {
@@ -87,6 +86,8 @@ app.registerExtension({
         this.setDirtyCanvas(true, true);
       };
       this.jnRebuild = function () {
+        delete this.properties.group_note;
+        delete this.properties.group_color;
         for (const widget of this.widgets.filter((w) => w.jnGroup)) widget.onRemove?.();
         this.widgets = this.widgets.filter((w) => !w.jnGroup);
         const add = (type, name, value, callback, options = {}) => {
@@ -98,13 +99,13 @@ app.registerExtension({
           widget.options = { ...widget.options, ...options, serialize: false };
           return widget;
         };
-        noteHeader(this, "Group note", "Group note · click to edit", () => ({ note: this.properties.group_note, color: this.properties.group_color }), ({ note, color }) => {
-          if (note !== undefined) this.properties.group_note = note;
-          if (color !== undefined) this.properties.group_color = color;
-        });
         this.properties.lora_rows.forEach((row, index) => {
           const number = index + 1;
+          row.enabled ??= true;
           noteHeader(this, `Note ${number}`, `LoRA ${number} · click to add note`, () => row, (values) => Object.assign(row, values));
+          add("toggle", `LoRA ${number} enabled`, row.enabled, (value) => {
+            this.jnChange(() => { row.enabled = value; });
+          }, { on: "On", off: "Off" });
           const missing = row.lora && !this.jnLoraFiles.includes(row.lora);
           const combo = add("combo", `LoRA ${number}`, row.lora || NONE, (value) => {
             this.jnChange(() => { row.lora = value === NONE ? "" : value; });
@@ -126,7 +127,7 @@ app.registerExtension({
         add("button", this.properties.lora_rows.length < 12 ? "+ Add LoRA" : "12 / 12 LoRAs", null, () => {
           if (this.properties.lora_rows.length >= 12) return;
           this.jnChange(() => {
-            this.properties.lora_rows.push({ note: "", lora: "", weight: 1 });
+            this.properties.lora_rows.push({ note: "", lora: "", weight: 1, enabled: true });
             this.jnRebuild();
           });
         });
