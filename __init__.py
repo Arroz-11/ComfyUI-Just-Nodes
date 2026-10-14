@@ -26,8 +26,11 @@ from .nodes import (
     IMAGE_EXTENSIONS,
 )
 from .preset_loader import load_all_presets
+from .lora_group import LoraGroupModelOnly
+import folder_paths
 
 NODE_CLASS_MAPPINGS = {
+    "LoraGroupModelOnly_JN": LoraGroupModelOnly,
     "ImageFromFolder_JN": ImageFromFolder,
     "PromptStack_JN": PromptStack,
     "Picker_JN": Picker,
@@ -51,6 +54,7 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
+    "LoraGroupModelOnly_JN": "LoRA Group (Model Only) 💎 Just Nodes",
     "ImageFromFolder_JN": "Image From Folder \U0001f48e Just Nodes",
     "PromptStack_JN": "Prompt Stack \U0001f48e Just Nodes",
     "Picker_JN": "Picker (dynamic) \U0001f48e Just Nodes",
@@ -74,6 +78,12 @@ NODE_DISPLAY_NAME_MAPPINGS = {
 }
 
 WEB_DIRECTORY = "./js"
+
+
+@PromptServer.instance.routes.get("/just_nodes/lora_list")
+async def lora_list(request):
+    folder_paths.filename_list_cache.pop("loras", None)
+    return web.json_response({"loras": folder_paths.get_filename_list("loras")})
 
 
 @PromptServer.instance.routes.get("/just_nodes/reload_presets")
